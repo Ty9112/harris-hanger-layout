@@ -66,7 +66,7 @@ Open **Hanger Settings**. There are two tabs:
 
 ### Add a new spec
 
-Click **Add Spec** above the list. A new spec appears with a default
+Click **+ New** below the list. A new spec appears with a default
 name. Click the name to rename.
 
 ![Add Spec button + named spec](screenshots/04-add-spec.png)
@@ -169,12 +169,46 @@ Open **Hanger Placement**.
 
 ![Hanger Placement panel](screenshots/11-placement-panel.png)
 
-### 1. Choose a Service
+### 1. Choose a selection method
 
-The Service dropdown lists Piping / Duct Types in your project. Pick the
-one whose hanger buttons you want to use.
+There are three ways to tell the tool which fabrication parts should
+receive hangers. They are mutually exclusive — pick one.
 
-![Service dropdown](screenshots/12-service-dropdown.png)
+![Selection method radio buttons](screenshots/12-selection-methods.png)
+
+**Current selection** *(default)* — uses whatever fabrication parts you
+already have selected in Revit when you hit Apply. Because the dialog is
+modeless, you can keep adjusting the Revit selection (window-select,
+ctrl-click, Tab-cycle) without closing the dialog. If nothing is
+selected when you Apply, the status line tells you so and nothing is
+placed.
+
+**Pick elements** — click the **Pick…** button next to this radio. The
+dialog hides itself while you pick parts using the standard Revit
+element-picker (single-click, ctrl-click for multiple, Esc to finish).
+When you finish picking, the dialog reappears and remembers the picked
+set. The picked set replaces whatever was previously chosen, so you can
+build it up across multiple Pick… clicks only by ctrl-picking within a
+single picking session.
+
+**All in service** — the placer pulls every fabrication part whose
+Service matches the one chosen in the adjacent dropdown. Useful when
+you've designed the whole project under a single Service ("Plumbing —
+DCW", "Supply Air Round", etc.) and want a project-wide pass.
+
+When **All in service** is active, two scope radios become enabled:
+
+- **Project** — every part on that Service in the whole model,
+  regardless of which view you're in or what's cropped out.
+- **Active view** — every part on that Service that's visible in the
+  current view (respects view range, crop region, visibility/graphics
+  overrides, and worksets). Useful when you've isolated a riser, a
+  single floor, or a specific equipment area and want to apply hangers
+  to just that scope.
+
+Both scope radios are greyed out for **Current selection** and **Pick
+elements** modes — the selection itself already defines the scope in
+those cases.
 
 ### 2. Pick the specs to apply
 
@@ -185,29 +219,42 @@ one whose hanger buttons you want to use.
 - **Rect Duct Spec** dropdown — pick a spec to apply to selected
   rectangular ducts.
 
-If your selection only contains pipes, the duct dropdowns are ignored
-(and vice versa).
+If your target set only contains pipes, the duct dropdowns are ignored
+(and vice versa). The **↻** button next to the dropdowns re-detects what
+part types are in the current target set, useful if you've changed
+modes or selections.
 
 ![Three spec dropdowns](screenshots/13-spec-dropdowns.png)
 
-### 3. (Optional) Pick a Start Node
+### 3. Pick a Start Node
 
-If you have a long chain of parts and want hangers to start spacing from
-a specific end, click **Pick Start Node** and click on the part at the
-end you want to start from. The flow-map orients the chain to that side.
+Since we are, at times, placing before and/or after fittings, we need to
+determine which side of the run determines the start. Click **Pick…**
+next to **Starting Node**, then click on the part at the end you want
+to start from. The flow-map orients the chain to that side.
 
 ![Start Node picker](screenshots/14-start-node.png)
 
 Without a Start Node, the placer picks an end automatically.
 
-### 4. Select parts in Revit
+### 4. Attach hangers to structure
 
-In the Revit view, select the fabrication pipes and/or ducts you want to
-add hangers to. You can select:
+The **Attach hangers to structure** checkbox controls whether the
+placer hands the resulting hangers to Revit's standard structural-
+attachment behavior. When checked, Revit extends each hanger's rod
+upward and attaches it to the nearest overhead structural framing
+(slab, beam, brace) where one is in reach. Hangers in areas without
+nearby structure are still inserted but left unattached.
 
-- A single straight.
-- A chain of straights joined by fittings/couplings.
-- Multiple disconnected runs (each handled independently).
+This is exactly the same behavior as Revit's built-in **Place a Hanger**
+command — see Autodesk's documentation under
+*Revit Help → MEP → Hangers* for the structural-attachment rules
+(reach distance, host categories, what counts as "nearby") since the
+add-in uses the Revit API for this and doesn't override that logic.
+
+Leave it off if you want hangers placed in space and intend to attach
+them by hand later, or if your model doesn't yet have the structural
+framing modeled.
 
 ### 5. Click Apply
 
@@ -237,13 +284,27 @@ project-wide controls:
   space continuously across joint pieces, treating the joint as a small
   gap.
 
-### Exclude these hangers
+### Excluded hangers
 
-A free-text list of hanger button names (one per line) that the auto-
-picker should skip. Useful when your service has placeholder /
-deprecated hanger buttons you don't want auto-selected.
+The auto-picker skips any hanger button that's been marked **Excluded**
+in Fabrication itself — the "X" overlay you see on a button's tile in
+ESTmep / CADmep / CAMduct. This is also why the default Hanger Override
+text says "first **non-excluded** hanger that fits the shape" — the
+exclusion is read straight from your Fab database.
 
-![Exclude list](screenshots/17-exclude-list.png)
+There's no in-dialog exclude list. To prevent a specific hanger from
+being auto-picked:
+
+1. Open your Fab database in ESTmep / CADmep / CAMduct.
+2. Find the hanger button, right-click → Exclude (or whatever your local
+   workflow calls it — UI varies by Fab version).
+3. Save the Fab database.
+4. Restart Revit so it re-reads the updated service.
+
+If you want to override the auto-pick for just one spec without touching
+the Fab database, use the **Pick…** button on that spec's Hanger
+Override row (see [Hanger Override](#hanger-override) above) — that
+pins a specific button regardless of exclusion status.
 
 ---
 
