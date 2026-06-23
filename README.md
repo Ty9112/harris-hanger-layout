@@ -9,7 +9,7 @@ edit your specifications inline, and apply them without closing the window.
 Specifications are stored on the Revit project, so they survive save/close
 cycles and travel with the model.
 
-![Hanger Layout dialog](docs/screenshots/02-dialog-initial.png)
+![Hanger Layout dialog](docs/screenshots/dialog-overview.png)
 
 ---
 
