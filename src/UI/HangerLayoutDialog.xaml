@@ -1,0 +1,443 @@
+<Window x:Class="HangerLayout.UI.HangerLayoutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:HangerLayout.UI"
+        Title="Hanger Layout"
+        Width="900" Height="700"
+        ResizeMode="CanResize"
+        MinWidth="820" MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        ShowInTaskbar="False"
+        Background="#F5F5F5">
+
+    <Window.Resources>
+        <ui:BoolToVisibilityConverter x:Key="BoolToVis"/>
+        <ui:BoolToVisibilityConverter x:Key="InvBoolToVis" Inverse="True"/>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#2D6B9E"/>
+            <Setter Property="Margin" Value="0,8,0,4"/>
+        </Style>
+        <Style x:Key="Lbl" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Foreground" Value="#333333"/>
+        </Style>
+        <Style x:Key="ExpanderHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#2D6B9E"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#BBBBBB"/>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#2D6B9E"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="18,6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="Padding" Value="14,5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ═══ Hanger Settings (specs editor) — collapsed by default ═══ -->
+        <Expander Grid.Row="0" IsExpanded="False" Margin="0,0,0,8">
+            <Expander.Header>
+                <TextBlock Style="{StaticResource ExpanderHeader}" Text="Hanger Settings"/>
+            </Expander.Header>
+            <Grid Margin="0,8,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="300"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TabControl Grid.Row="0">
+                    <TabItem Header="Pipe Specs">
+                        <Grid Margin="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <DockPanel Grid.Column="0">
+                                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Button Style="{StaticResource SecondaryButton}" Content="+ New"
+                                            Click="PipeSpecAdd_Click" Padding="10,4" Margin="0,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Duplicate"
+                                            Click="PipeSpecDuplicate_Click" Padding="10,4" Margin="0,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Delete"
+                                            Click="PipeSpecDelete_Click" Padding="10,4"/>
+                                </StackPanel>
+                                <ListBox x:Name="PipeSpecsList"
+                                         ItemsSource="{Binding PipeSpecs}"
+                                         SelectedItem="{Binding SelectedPipeSpec}"
+                                         DisplayMemberPath="Name"/>
+                            </DockPanel>
+
+                            <Grid Grid.Column="1" Margin="12,0,0,0"
+                                  IsEnabled="{Binding HasSelectedPipeSpec}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Name:"/>
+                                    <TextBox Width="240"
+                                             Text="{Binding SelectedPipeSpec.Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Hanger Override:"/>
+                                    <TextBlock Text="{Binding SelectedPipeSpec.HangerOverrideDisplay}"
+                                               Style="{StaticResource Lbl}" Foreground="#666666"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Pick…"
+                                            Click="PipeHangerOverridePick_Click" Padding="10,4" Margin="6,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Clear"
+                                            Click="PipeHangerOverrideClear_Click" Padding="10,4" Margin="0,0,8,0"/>
+                                    <TextBlock VerticalAlignment="Center">
+                                        <Hyperlink Click="HangerSelectionHelp_Click"
+                                                   Foreground="#2D6B9E"
+                                                   ToolTip="How the default hanger is picked when no override is set.">Learn more…</Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Support Positions:" Width="120"/>
+                                    <ComboBox Width="280"
+                                              SelectedIndex="{Binding SelectedPipeSpec.SupportPositionsIndex}">
+                                        <ComboBoxItem Content="Not at Change of Direction"/>
+                                        <ComboBoxItem Content="Before Change of Direction"/>
+                                        <ComboBoxItem Content="After Change of Direction"/>
+                                        <ComboBoxItem Content="Before and After Change of Direction"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Straight Joints:" Width="120"/>
+                                    <ComboBox Width="280"
+                                              SelectedIndex="{Binding SelectedPipeSpec.StraightJointsIndex}">
+                                        <ComboBoxItem Content="Not at Straight Joints"/>
+                                        <ComboBoxItem Content="Before every Straight Joint"/>
+                                        <ComboBoxItem Content="After every Straight Joint"/>
+                                        <ComboBoxItem Content="Before and After Every Straight Joint"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <DataGrid Grid.Row="4"
+                                          ItemsSource="{Binding SelectedPipeSpec.Rows}"
+                                          AutoGenerateColumns="False"
+                                          HeadersVisibility="Column"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          GridLinesVisibility="Horizontal"
+                                          RowHeight="24">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="&lt;= Size (in)"
+                                                            Binding="{Binding MaxSizeInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Straight Spacing (in)"
+                                                            Binding="{Binding StraightSpacingInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Fitting Distance (in)"
+                                                            Binding="{Binding FittingDistanceInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Distance from Joint (in)"
+                                                            Binding="{Binding DistanceFromJointInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Style="{StaticResource SecondaryButton}" Content="+ Row"
+                                            Click="PipeRowAdd_Click" Padding="10,4" Margin="0,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="- Row"
+                                            Click="PipeRowDelete_Click" Padding="10,4"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Duct Specs">
+                        <Grid Margin="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <DockPanel Grid.Column="0">
+                                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Button Style="{StaticResource SecondaryButton}" Content="+ New"
+                                            Click="DuctSpecAdd_Click" Padding="10,4" Margin="0,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Duplicate"
+                                            Click="DuctSpecDuplicate_Click" Padding="10,4" Margin="0,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Delete"
+                                            Click="DuctSpecDelete_Click" Padding="10,4"/>
+                                </StackPanel>
+                                <ListBox x:Name="DuctSpecsList"
+                                         ItemsSource="{Binding DuctSpecs}"
+                                         SelectedItem="{Binding SelectedDuctSpec}"
+                                         DisplayMemberPath="Name"/>
+                            </DockPanel>
+
+                            <Grid Grid.Column="1" Margin="12,0,0,0"
+                                  IsEnabled="{Binding HasSelectedDuctSpec}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Name:"/>
+                                    <TextBox Width="240"
+                                             Text="{Binding SelectedDuctSpec.Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Shape:" Margin="16,0,8,0"/>
+                                    <ComboBox Width="150"
+                                              SelectedIndex="{Binding SelectedDuctSpec.DuctShapeIndex}"
+                                              ToolTip="Limits this spec to ducts of the selected cross-section. Any applies to both.">
+                                        <ComboBoxItem Content="Any"/>
+                                        <ComboBoxItem Content="Round"/>
+                                        <ComboBoxItem Content="Rectangular"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Hanger Override:"/>
+                                    <TextBlock Text="{Binding SelectedDuctSpec.HangerOverrideDisplay}"
+                                               Style="{StaticResource Lbl}" Foreground="#666666"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Pick…"
+                                            Click="DuctHangerOverridePick_Click" Padding="10,4" Margin="6,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Clear"
+                                            Click="DuctHangerOverrideClear_Click" Padding="10,4" Margin="0,0,8,0"/>
+                                    <TextBlock VerticalAlignment="Center">
+                                        <Hyperlink Click="HangerSelectionHelp_Click"
+                                                   Foreground="#2D6B9E"
+                                                   ToolTip="How the default hanger is picked when no override is set.">Learn more…</Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Support Positions:" Width="120"/>
+                                    <ComboBox Width="280"
+                                              SelectedIndex="{Binding SelectedDuctSpec.SupportPositionsIndex}">
+                                        <ComboBoxItem Content="Not at Change of Direction"/>
+                                        <ComboBoxItem Content="Before Change of Direction"/>
+                                        <ComboBoxItem Content="After Change of Direction"/>
+                                        <ComboBoxItem Content="Before and After Change of Direction"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Straight Joints:" Width="120"/>
+                                    <ComboBox Width="280"
+                                              SelectedIndex="{Binding SelectedDuctSpec.StraightJointsIndex}">
+                                        <ComboBoxItem Content="Not at Straight Joints"/>
+                                        <ComboBoxItem Content="Before every Straight Joint"/>
+                                        <ComboBoxItem Content="After every Straight Joint"/>
+                                        <ComboBoxItem Content="Before and After Every Straight Joint"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <DataGrid Grid.Row="4"
+                                          ItemsSource="{Binding SelectedDuctSpec.Rows}"
+                                          AutoGenerateColumns="False"
+                                          HeadersVisibility="Column"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          GridLinesVisibility="Horizontal"
+                                          RowHeight="24">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="&lt;= Size (in)"
+                                                            Binding="{Binding MaxSizeInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Straight Spacing (in)"
+                                                            Binding="{Binding StraightSpacingInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Fitting Distance (in)"
+                                                            Binding="{Binding FittingDistanceInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Distance from Joint (in)"
+                                                            Binding="{Binding DistanceFromJointInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Style="{StaticResource SecondaryButton}" Content="+ Row"
+                                            Click="DuctRowAdd_Click" Padding="10,4" Margin="0,0,4,0"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="- Row"
+                                            Click="DuctRowDelete_Click" Padding="10,4"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
+                    <!-- Save Specs styling: gray when clean, blue (primary) when dirty.
+                         DataTrigger watches IsSpecsDirty on the ViewModel and swaps
+                         the button to draw the user's attention to unsaved edits. -->
+                    <Button Content="Save Specs" Click="SaveSpecs_Click">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSpecsDirty}" Value="True">
+                                        <Setter Property="Background" Value="#2D6B9E"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Style="{StaticResource SecondaryButton}"
+                            Content="Import from Fabrication Config…"
+                            Click="ImportFromFab_Click"
+                            Margin="8,0,0,0"
+                            ToolTip="Read Hanger Specifications from the active Fabrication config's HSpecs.MAP and merge / replace into this list."/>
+                </StackPanel>
+            </Grid>
+        </Expander>
+
+        <!-- ═══ Hanger Placement (apply controls) — expanded by default ═══ -->
+        <Expander Grid.Row="1" IsExpanded="True" Margin="0,0,0,8">
+            <Expander.Header>
+                <TextBlock Style="{StaticResource ExpanderHeader}" Text="Hanger Placement"/>
+            </Expander.Header>
+            <Grid Margin="0,8,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                    <RadioButton Content="Current selection" GroupName="HangerSrc"
+                                 IsChecked="{Binding IsModeCurrent}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <RadioButton Content="Pick elements" GroupName="HangerSrc"
+                                 IsChecked="{Binding IsModePick}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource SecondaryButton}" Content="Pick…"
+                            Click="PickElements_Click" Padding="10,4"
+                            IsEnabled="{Binding IsModePick}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,4">
+                    <RadioButton Content="All in service" GroupName="HangerSrc"
+                                 IsChecked="{Binding IsModeService}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Width="220"
+                              ItemsSource="{Binding ServiceNames}"
+                              SelectedItem="{Binding SelectedServiceName}"
+                              IsEnabled="{Binding IsModeService}" Margin="0,0,12,0"/>
+                    <RadioButton Content="Project" GroupName="HangerScope"
+                                 IsChecked="{Binding IsScopeProject}" VerticalAlignment="Center"
+                                 IsEnabled="{Binding IsModeService}" Margin="0,0,8,0"/>
+                    <RadioButton Content="Active view" GroupName="HangerScope"
+                                 IsChecked="{Binding IsScopeView}" VerticalAlignment="Center"
+                                 IsEnabled="{Binding IsModeService}" Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource SecondaryButton}" Content="Refresh"
+                            Click="RefreshServices_Click" Padding="10,4"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Style="{StaticResource Lbl}" Text="Pipe spec:"/>
+                    <Grid Width="160" Margin="0,0,12,0">
+                        <ComboBox ItemsSource="{Binding PipeSpecs}"
+                                  SelectedItem="{Binding ApplyPipeSpec}"
+                                  DisplayMemberPath="Name"
+                                  Visibility="{Binding HasPipeTarget, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="—" FontSize="14" Foreground="#888"
+                                   VerticalAlignment="Center" HorizontalAlignment="Left"
+                                   Visibility="{Binding HasPipeTarget, Converter={StaticResource InvBoolToVis}}"/>
+                    </Grid>
+                    <TextBlock Style="{StaticResource Lbl}" Text="Round duct:"/>
+                    <Grid Width="150" Margin="0,0,12,0">
+                        <ComboBox ItemsSource="{Binding RoundDuctSpecs}"
+                                  SelectedItem="{Binding ApplyRoundDuctSpec}"
+                                  DisplayMemberPath="Name"
+                                  Visibility="{Binding HasRoundDuctTarget, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="—" FontSize="14" Foreground="#888"
+                                   VerticalAlignment="Center" HorizontalAlignment="Left"
+                                   Visibility="{Binding HasRoundDuctTarget, Converter={StaticResource InvBoolToVis}}"/>
+                    </Grid>
+                    <TextBlock Style="{StaticResource Lbl}" Text="Rect duct:"/>
+                    <Grid Width="150">
+                        <ComboBox ItemsSource="{Binding RectDuctSpecs}"
+                                  SelectedItem="{Binding ApplyRectDuctSpec}"
+                                  DisplayMemberPath="Name"
+                                  Visibility="{Binding HasRectDuctTarget, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="—" FontSize="14" Foreground="#888"
+                                   VerticalAlignment="Center" HorizontalAlignment="Left"
+                                   Visibility="{Binding HasRectDuctTarget, Converter={StaticResource InvBoolToVis}}"/>
+                    </Grid>
+                    <Button Style="{StaticResource SecondaryButton}" Content="↻"
+                            Click="RefreshTargets_Click" Padding="8,4" Margin="8,0,0,0"
+                            ToolTip="Re-detect Pipe / Round duct / Rect duct in the current target set."/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Style="{StaticResource Lbl}" Text="Starting Node:"/>
+                    <Button Style="{StaticResource SecondaryButton}" Content="Pick…"
+                            Click="PickStart_Click" Padding="10,4" Margin="0,0,4,0"/>
+                    <Button Style="{StaticResource SecondaryButton}" Content="Clear"
+                            Click="ClearStart_Click" Padding="10,4" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding StartElementText}"
+                               Style="{StaticResource Lbl}" Foreground="#666666"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,4,0,0">
+                    <CheckBox Content="Attach hangers to structure"
+                              IsChecked="{Binding AttachToStructure}"
+                              VerticalAlignment="Center"
+                              ToolTip="When checked, Revit snaps each hanger rod to overhead structural framing where possible. Hangers without nearby structure are still placed but left unattached."/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Style="{StaticResource PrimaryButton}" Content="Apply"
+                            Click="Apply_Click" Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource SecondaryButton}" Content="Close"
+                            Click="Close_Click"/>
+                </StackPanel>
+            </Grid>
+        </Expander>
+
+        <!-- ═══ Diagnostics — collapsed by default ═══ -->
+        <Expander Grid.Row="2" IsExpanded="False" Margin="0,0,0,8">
+            <Expander.Header>
+                <TextBlock Style="{StaticResource ExpanderHeader}" Text="Diagnostics"/>
+            </Expander.Header>
+            <TextBox Text="{Binding StatusText, Mode=OneWay}"
+                     IsReadOnly="True" BorderThickness="0"
+                     Background="Transparent" Foreground="#444444"
+                     TextWrapping="Wrap" Margin="0,8,0,0"
+                     MaxHeight="240"
+                     VerticalScrollBarVisibility="Auto"
+                     FontFamily="Consolas"/>
+        </Expander>
+    </Grid>
+</Window>

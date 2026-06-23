@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>HangerLayout</AssemblyName>
+    <RootNamespace>HangerLayout</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PlatformTarget>x64</PlatformTarget>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Configurations>Debug;Release</Configurations>
+    <Platforms>x64</Platforms>
+
+    <!-- Versioning surface — bump on release. -->
+    <Version>1.0.0</Version>
+    <Authors>Scott Buchanan</Authors>
+    <Product>Hanger Layout for Revit</Product>
+  </PropertyGroup>
+
+  <!--
+    Revit assembly references. Default path is the standard install
+    location for Revit 2026 on Windows. Override by setting the
+    RevitInstallPath property at build time, e.g.:
+      dotnet build /p:RevitInstallPath="D:\Revit 2026"
+  -->
+  <PropertyGroup>
+    <RevitInstallPath Condition="'$(RevitInstallPath)' == ''">C:\Program Files\Autodesk\Revit 2026</RevitInstallPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitInstallPath)\RevitAPI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitInstallPath)\RevitAPIUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!--
+    Auto-deploy the built DLL + .addin manifest to the user's Revit
+    Addins folder on Debug builds. Skip if Revit is open (DLL locked).
+    Release builds don't auto-deploy — those go to GitHub Releases.
+  -->
+  <Target Name="DeployToRevitAddins" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
+          DestinationFolder="$(APPDATA)\Autodesk\Revit\Addins\2026\"
+          SkipUnchangedFiles="true"
+          ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="$(ProjectDir)HangerLayout.addin"
+          DestinationFolder="$(APPDATA)\Autodesk\Revit\Addins\2026\"
+          SkipUnchangedFiles="true"
+          ContinueOnError="WarnAndContinue" />
+  </Target>
+
+</Project>
