@@ -256,7 +256,49 @@ Leave it off if you want hangers placed in space and intend to attach
 them by hand later, or if your model doesn't yet have the structural
 framing modeled.
 
-### 5. Click Apply
+### 5. Skip hangers placed too close together
+
+The **Skip hangers placed within [X] in. of another** checkbox handles
+a real edge case in the spacing math: when a spec has both a regular
+"every Y feet" interval **and** a "Z inches from a fitting / joint"
+setback rule, those two rules can independently demand hangers that
+end up uncomfortably close together.
+
+Concrete example. Say your spec is **8' spacing** with an **8" joint
+setback**. You have a run with a reducer somewhere in the middle. The
+placer walks start-to-end:
+
+- Hanger 1 lands 8" past the upstream fitting.
+- Hanger 2 lands 8' past Hanger 1 (correct rhythm).
+- The joint-setback rule then *wants* to add a hanger 8" before the
+  reducer — but if Hanger 2 already happens to sit close to that
+  location, you end up with two hangers only a few inches apart.
+
+When this checkbox is on, the placer walks the chain start-to-end and
+drops any candidate position that lands within your specified distance
+of an already-kept hanger. **The earlier (start-side) position always
+wins**, which is usually what you want — the regular-rhythm hanger
+stays put, and the redundant joint-setback candidate gets skipped.
+Placement picks back up cleanly on the downstream side of the joint.
+
+A few notes:
+
+- The threshold is **inches**, and it applies project-wide (all specs,
+  all domains).
+- Default value is **6"** when first enabled. Adjust to whatever your
+  organization treats as "too close" — common values are 6"–12".
+- The setting persists with the project. Once you turn it on and set a
+  value, it stays put across Apply runs and Revit sessions.
+- Leaving the checkbox off preserves the strict spec behavior: every
+  rule that demands a hanger gets one, even if two end up adjacent.
+- Status line after Apply will report any positions that were skipped
+  by this rule.
+
+If you're not seeing the issue described above in your work, leave it
+off — there's no downside to the strict behavior when your specs don't
+produce conflicting hanger requests.
+
+### 6. Click Apply
 
 ![Apply button](screenshots/15-apply-button.png)
 

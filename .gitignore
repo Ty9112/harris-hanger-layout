@@ -24,3 +24,6 @@ Thumbs.db
 
 # Claude Code session artifacts (per-user, not shared)
 .claude/
+
+# Release staging — published via GitHub Releases, not tracked in git
+releases/

@@ -44,6 +44,7 @@ namespace HangerLayout.Revit
             public int SkippedShort   { get; set; }
             public int SkippedNoSpec  { get; set; }
             public int SkippedNoButton{ get; set; }
+            public int SkippedTooClose{ get; set; }
             public int OversizeBand   { get; set; }
             public int CreateFailed   { get; set; }
             public bool DumpedDiagnostics { get; set; }
@@ -62,7 +63,8 @@ namespace HangerLayout.Revit
             SupportSpec spec,
             Outcome outcome,
             HangerFlowMap? flowMap = null,
-            bool attachToStructure = false)
+            bool attachToStructure = false,
+            double minSpacingFt = 0.0)
         {
             if (spec == null || spec.Rows == null || spec.Rows.Count == 0)
             {
@@ -108,11 +110,11 @@ namespace HangerLayout.Revit
                         // re-process them when the outer loop reaches them.
                         foreach (var seg in chain.Segments)
                             visited.Add(seg.Part.Id.Value);
-                        PlaceForChain(doc, chain, spec, sortedRows, outcome, flowMap, attachToStructure);
+                        PlaceForChain(doc, chain, spec, sortedRows, outcome, flowMap, attachToStructure, minSpacingFt);
                     }
                     else
                     {
-                        PlaceForPart(doc, part, spec, sortedRows, outcome, flowMap, attachToStructure);
+                        PlaceForPart(doc, part, spec, sortedRows, outcome, flowMap, attachToStructure, minSpacingFt);
                     }
                 }
                 catch (Exception ex)
@@ -133,7 +135,8 @@ namespace HangerLayout.Revit
             List<SupportSpecRow> sortedRows,
             Outcome outcome,
             HangerFlowMap? flowMap,
-            bool attachToStructure)
+            bool attachToStructure,
+            double minSpacingFt = 0.0)
         {
             // Pick the two End connectors (a tee-tapped pipe also has Curve connectors,
             // which we ignore for the hanger axis).
@@ -269,6 +272,7 @@ namespace HangerLayout.Revit
             var positionsFt = BuildPositions(
                 length, freeStartFt, freeEndFt, spacingFt,
                 endA.Anchored, endB.Anchored, epsFt);
+            positionsFt = ApplyMinSpacing(positionsFt, minSpacingFt, outcome);
 
             if (positionsFt.Count == 0)
             {
@@ -709,6 +713,31 @@ namespace HangerLayout.Revit
         // ────────────────────────────────────────────────────────────────────────
         // Position list construction
         // ────────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Walk start-to-end and drop any candidate position whose distance
+        /// from the previous *kept* position is less than
+        /// <paramref name="minSpacingFt"/>. The earlier (start-side) position
+        /// wins, which matches the user-facing rule: the leftmost hanger is
+        /// already placed correctly per spec; the later candidate (typically
+        /// a fitting / joint setback that crowds the rhythm) gets skipped.
+        /// </summary>
+        private static List<double> ApplyMinSpacing(
+            List<double> positionsFt, double minSpacingFt, Outcome outcome)
+        {
+            if (positionsFt == null || positionsFt.Count <= 1 || minSpacingFt <= 0)
+                return positionsFt ?? new List<double>();
+            var sorted = positionsFt.OrderBy(p => p).ToList();
+            var kept = new List<double>(sorted.Count) { sorted[0] };
+            for (int i = 1; i < sorted.Count; i++)
+            {
+                if (sorted[i] - kept[kept.Count - 1] >= minSpacingFt - 1e-6)
+                    kept.Add(sorted[i]);
+                else
+                    outcome.SkippedTooClose++;
+            }
+            return kept;
+        }
 
         private static List<double> BuildPositions(
             double length, double freeStartFt, double freeEndFt, double spacingFt,
@@ -1569,7 +1598,8 @@ namespace HangerLayout.Revit
         private static void PlaceForChain(
             Document doc, ChainInfo chain, SupportSpec spec,
             List<SupportSpecRow> sortedRows, Outcome outcome,
-            HangerFlowMap? flowMap, bool attachToStructure)
+            HangerFlowMap? flowMap, bool attachToStructure,
+            double minSpacingFt = 0.0)
         {
             if (chain.Segments.Count == 0 || chain.TotalLengthFt <= 0) return;
 
@@ -1612,6 +1642,7 @@ namespace HangerLayout.Revit
             var positionsFt = BuildPositions(
                 chain.TotalLengthFt, freeStartFt, freeEndFt, spacingFt,
                 endLeft.Anchored, endRight.Anchored, epsFt);
+            positionsFt = ApplyMinSpacing(positionsFt, minSpacingFt, outcome);
             if (positionsFt.Count == 0)
             {
                 outcome.SkippedShort++;

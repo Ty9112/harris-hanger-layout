@@ -335,6 +335,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
@@ -417,7 +418,19 @@
                               ToolTip="When checked, Revit snaps each hanger rod to overhead structural framing where possible. Hangers without nearby structure are still placed but left unattached."/>
                 </StackPanel>
 
-                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,8,0,0">
+                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,4,0,0">
+                    <CheckBox Content="Skip hangers placed within"
+                              IsChecked="{Binding MinSpacingEnabled}"
+                              VerticalAlignment="Center"
+                              ToolTip="When checked, the placer walks each chain start-to-end and skips any candidate hanger that lands within this distance of an already-placed one. The earlier hanger wins (matches the user's Start Node side). Use to suppress redundant joint-setback hangers that would crowd the regular spacing."/>
+                    <TextBox Width="50" Margin="6,0,4,0" VerticalContentAlignment="Center"
+                             Text="{Binding MinSpacingInches, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding MinSpacingEnabled}"/>
+                    <TextBlock Text="in. of another"
+                               Style="{StaticResource Lbl}" Foreground="#666666"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,8,0,0">
                     <Button Style="{StaticResource PrimaryButton}" Content="Apply"
                             Click="Apply_Click" Margin="0,0,8,0"/>
                     <Button Style="{StaticResource SecondaryButton}" Content="Close"

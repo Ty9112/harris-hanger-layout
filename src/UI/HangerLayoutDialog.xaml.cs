@@ -46,6 +46,15 @@ namespace HangerLayout.UI
             ViewModel = new HangerLayoutViewModel(initialSpecs, services);
             DataContext = ViewModel;
 
+            // Load persisted placement settings (project-wide).
+            try
+            {
+                var ps = HangerSettingsStore.GetPlacementSettings(uiDoc.Document);
+                ViewModel.MinSpacingEnabled = ps.MinSpacingEnabled;
+                ViewModel.MinSpacingInches  = ps.MinSpacingInches;
+            }
+            catch { /* defaults stand */ }
+
             // Auto-refresh target categories whenever the user changes
             // mode / service / scope, or after the dialog gets focus
             // (lets us pick up external Revit selection changes).
@@ -846,6 +855,9 @@ namespace HangerLayout.UI
             }
             bool       reverseFlow    = ViewModel.ReverseFlow;  // always false now (UI removed)
             bool       attachToStruct = ViewModel.AttachToStructure;
+            double     minSpacingFt   = ViewModel.MinSpacingEnabled
+                                       ? Math.Max(0.0, ViewModel.MinSpacingInches / 12.0)
+                                       : 0.0;
 
             HangerLayoutApp.HangerHandler!.SetAction(uiApp =>
             {
@@ -885,6 +897,13 @@ namespace HangerLayout.UI
                     fho.SetClearAfterRollback(true);
                     tx.SetFailureHandlingOptions(fho);
                     tx.Start();
+
+                    // Persist placement settings so they survive across sessions.
+                    HangerSettingsStore.SetPlacementSettings(doc, new HangerSettingsStore.PlacementSettings
+                    {
+                        MinSpacingEnabled = ViewModel.MinSpacingEnabled,
+                        MinSpacingInches  = ViewModel.MinSpacingInches,
+                    });
 
                     // Delete existing hangers hosted on the target pipes/ducts
                     // before placing new ones. Prevents accumulation across
@@ -1008,11 +1027,11 @@ namespace HangerLayout.UI
                             $"StraightJoints={rectDuctSpec.StraightJoints}");
 
                     if (pipeSpec != null && pipes.Count > 0)
-                        HangerPlacer.Place(doc, pipes, pipeSpec, outcome, flowMap, attachToStruct);
+                        HangerPlacer.Place(doc, pipes, pipeSpec, outcome, flowMap, attachToStruct, minSpacingFt);
                     if (roundDuctSpec != null && roundDucts.Count > 0)
-                        HangerPlacer.Place(doc, roundDucts, roundDuctSpec, outcome, flowMap, attachToStruct);
+                        HangerPlacer.Place(doc, roundDucts, roundDuctSpec, outcome, flowMap, attachToStruct, minSpacingFt);
                     if (rectDuctSpec != null && rectDucts.Count > 0)
-                        HangerPlacer.Place(doc, rectDucts, rectDuctSpec, outcome, flowMap, attachToStruct);
+                        HangerPlacer.Place(doc, rectDucts, rectDuctSpec, outcome, flowMap, attachToStruct, minSpacingFt);
 
                     tx.Commit();
                 }
@@ -1555,6 +1574,23 @@ namespace HangerLayout.UI
         {
             get => _attachToStructure;
             set => SetField(ref _attachToStructure, value);
+        }
+
+        // Project-wide minimum-spacing skip. When enabled, walking start-to-end,
+        // any candidate hanger position falling within MinSpacingInches of the
+        // previously kept position is dropped. Earlier (start-side) wins.
+        // Persisted via HangerSettingsStore.PlacementSettings.
+        private bool _minSpacingEnabled;
+        public bool MinSpacingEnabled
+        {
+            get => _minSpacingEnabled;
+            set => SetField(ref _minSpacingEnabled, value);
+        }
+        private double _minSpacingInches = 6.0;
+        public double MinSpacingInches
+        {
+            get => _minSpacingInches;
+            set => SetField(ref _minSpacingInches, value);
         }
 
         // ── Target-category presence (drives Pipe/Duct spec dropdown visibility) ──
