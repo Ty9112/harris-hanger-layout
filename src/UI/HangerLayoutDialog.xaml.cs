@@ -726,12 +726,6 @@ namespace HangerLayout.UI
         // model dirty so the user reviews them and explicitly hits Save Specs.
         private void ImportFromFab_Click(object sender, RoutedEventArgs e)
         {
-#if NETFRAMEWORK
-            // The HSpecs.MAP reader needs zlib (System.IO.Compression), which is unsafe on net48 in a Revit
-            // add-in (Revit 2024 journal-verified conflict). On Revit 2023/2024, use Import Table (CSV/Excel).
-            ViewModel.StatusText = "Import from Fabrication Config requires Revit 2025+. " +
-                                   "On this version, use Import Table (CSV/Excel) instead.";
-#else
             HangerLayoutApp.HangerHandler!.SetAction(uiApp =>
             {
                 var doc = uiApp.ActiveUIDocument.Document;
@@ -816,7 +810,6 @@ namespace HangerLayout.UI
                 });
             });
             HangerLayoutApp.HangerEvent!.Raise();
-#endif
         }
 
         // ── Import from a Harris hanger schedule table (CSV / Excel) ───────────
@@ -1854,6 +1847,19 @@ namespace HangerLayout.UI
             set => SetField(ref _ductShapeIndex, value);
         }
 
+        // Rich-schedule match attributes from the table importer — kept so they survive import -> Save and are
+        // shown in the editor. Empty for specs created the old way or imported from Fab Config.
+        private string _media = "";
+        public string Media { get => _media; set { if (SetField(ref _media, value)) OnPropertyChanged(nameof(MatchSummary)); } }
+        private string _material = "";
+        public string Material { get => _material; set { if (SetField(ref _material, value)) OnPropertyChanged(nameof(MatchSummary)); } }
+        private string _insulation = "";
+        public string Insulation { get => _insulation; set { if (SetField(ref _insulation, value)) OnPropertyChanged(nameof(MatchSummary)); } }
+        /// <summary>"Media · Material · Insulation" (non-empty parts) shown next to the spec name so imported
+        /// specs that share a Service name stay distinguishable.</summary>
+        public string MatchSummary =>
+            string.Join("  ·  ", new[] { _media, _material, _insulation }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
         public ObservableCollection<RowVm> Rows { get; } = new();
 
         public static SpecVm From(SupportSpec s)
@@ -1867,6 +1873,9 @@ namespace HangerLayout.UI
                 SupportPositionsIndex = (int)s.SupportPositions,
                 StraightJointsIndex   = (int)s.StraightJoints,
                 DuctShapeIndex        = (int)s.DuctShape,
+                Media                = s.Media,
+                Material             = s.Material,
+                Insulation           = s.Insulation,
             };
             foreach (var r in s.Rows ?? new List<SupportSpecRow>())
             {
@@ -1894,6 +1903,9 @@ namespace HangerLayout.UI
                 SupportPositions = (SupportPositionMode)_supportPositionsIndex,
                 StraightJoints   = (StraightJointMode)_straightJointsIndex,
                 DuctShape        = (DuctShape)_ductShapeIndex,
+                Media            = Media,
+                Material         = Material,
+                Insulation       = Insulation,
                 Rows             = Rows.Select(r => new SupportSpecRow
                 {
                     MaxSizeInches           = r.MaxSizeInches,

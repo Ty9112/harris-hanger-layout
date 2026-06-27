@@ -6,6 +6,6 @@
     <ClientId>7F4A8D3E-2B91-4F5C-A8D2-3E1B97C4D5A6</ClientId>
     <FullClassName>HangerLayout.HangerLayoutApp</FullClassName>
     <VendorId>HLAYO</VendorId>
-    <VendorDescription>Hanger Layout for Revit 2026</VendorDescription>
+    <VendorDescription>Hanger Layout for Revit</VendorDescription>
   </AddIn>
 </RevitAddIns>

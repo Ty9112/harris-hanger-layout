@@ -1,0 +1,15 @@
+Service Name,Media,Pipe Material Description,Pipe Insulation Type,Pipe Size,Hanger Spacing,Distance From Fitting,Distance From Anchor,Hanger Type,Rod Diameter
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,1,6,1,0.5,Clevis,0.375
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,2,8,1,0.5,Clevis,0.375
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,3,10,1,0.5,Clevis,0.5
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,4,10,1,0.5,Clevis,0.5
+Domestic Hot Water,Domestic Hot,Copper,Insulated,1,6,1,0.5,Clevis,0.375
+Domestic Hot Water,Domestic Hot,Copper,Insulated,2,8,1,0.5,Clevis,0.375
+Domestic Hot Water,Domestic Hot,Copper,Insulated,3,10,1,0.5,Clevis,0.5
+Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,2,5,1,0.5,Clevis,0.5
+Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,4,5,1,0.5,Clevis,0.5
+Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,6,5,1,0.5,Clevis,0.625
+Chilled Water,Hydronic,Steel,Insulated,2,10,1.5,0.75,Clevis,0.5
+Chilled Water,Hydronic,Steel,Insulated,4,14,1.5,0.75,Clevis,0.625
+Chilled Water,Hydronic,Steel,Insulated,6,17,1.5,0.75,Clevis,0.625
+Chilled Water,Hydronic,Steel,Insulated,8,19,1.5,0.75,Clevis,0.875

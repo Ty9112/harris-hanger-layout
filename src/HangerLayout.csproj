@@ -20,7 +20,7 @@
     <Platforms>x64</Platforms>
 
     <!-- Versioning surface — bump on release. -->
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>Scott Buchanan</Authors>
     <Product>Hanger Layout for Revit</Product>
   </PropertyGroup>
@@ -58,14 +58,11 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
-  <!-- The Fab-Config import (HSpecs.MAP) decodes a zlib stream via System.IO.Compression, which is banned on
-       net48 in a Revit add-in (Revit 2024 journal-verified conflict). Exclude those files on net48 — Revit
-       2023/2024 users import the Harris schedule via Import Table (CSV/Excel) instead. The ImportFromFab handler
-       is #if-guarded to a 'requires Revit 2025+' message on net48. -->
+  <!-- The Fab-Config import (HSpecs.MAP) decodes a zlib stream. System.IO.Compression is banned on net48 in a
+       Revit add-in (Revit 2024 journal-verified conflict), so net48 decodes via SharpZipLib (pure-managed, MIT,
+       not loaded by Revit so no version clash); net8 uses the built-in ZLibStream. See MapFileHelper.TryDecompress. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-    <Compile Remove="Revit\MapFileHelper.cs" />
-    <Compile Remove="Revit\HSpecsMapReader.cs" />
-    <Compile Remove="Revit\SupportMapDumper.cs" />
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
   </ItemGroup>
 
   <!--
@@ -75,7 +72,15 @@
     Release builds don't auto-deploy — those go to GitHub Releases.
   -->
   <Target Name="DeployToRevitAddins" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
+    <!-- Copy the add-in DLL AND its dependency DLLs (SharpZipLib on net48, System.Text.Json + its transitive
+         deps on net48) next to the manifest so Revit resolves them at load time. The Revit API DLLs are
+         Private=False, so they never land in OutputPath and aren't (must not be) deployed. The *.dll glob is
+         intentional: MSBuild cleans OutputPath on rebuild and there are no native deps, so only the real
+         dependency set lands here (codebro P2 — acceptable ambient risk, documented rather than enumerated). -->
+    <ItemGroup>
+      <_DeployDlls Include="$(OutputPath)*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_DeployDlls)"
           DestinationFolder="$(APPDATA)\Autodesk\Revit\Addins\$(RevitVersion)\"
           SkipUnchangedFiles="true"
           ContinueOnError="WarnAndContinue" />

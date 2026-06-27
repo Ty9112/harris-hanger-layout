@@ -1,6 +1,6 @@
 # Hanger Layout for Revit
 
-A Revit add-in (builds for **Revit 2025** and **Revit 2026**) that places
+A Revit add-in (builds for **Revit 2023, 2024, 2025, and 2026**) that places
 pipe and duct hangers along selected runs of **Autodesk Fabrication parts**,
 using size-banded spacing rules you define once and reuse across the project.
 
@@ -42,6 +42,11 @@ like" reading of the MIT terms.
   for the joint piece's own length.
 - **Hanger override** — pick a specific hanger button per spec, or let the
   tool auto-pick the first compatible one for the part's shape.
+- **Import a hanger schedule (CSV / Excel)** — bring a size-banded schedule in
+  from a `.csv` or `.xlsx`: each row's Service / Media / Material / Insulation /
+  Size sets the spacing, fitting & joint setbacks, hanger type, and rod diameter.
+  Column matching is tolerant (several candidate headers per field). Merge with
+  what you already have, or replace.
 - **Import from Fabrication Config** — read your existing `HSpecs.MAP`
   Hanger Specifications straight out of the active Fab database. Merge with
   what you already have, or replace.

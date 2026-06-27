@@ -110,6 +110,10 @@
                                     <TextBlock Style="{StaticResource Lbl}" Text="Name:"/>
                                     <TextBox Width="240"
                                              Text="{Binding SelectedPipeSpec.Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Style="{StaticResource Lbl}" Foreground="#777777" Margin="12,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding SelectedPipeSpec.MatchSummary}"
+                                               ToolTip="Imported match keys (Media &#183; Material &#183; Insulation)"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
                                     <TextBlock Style="{StaticResource Lbl}" Text="Hanger Override:"/>
@@ -166,6 +170,12 @@
                                                             Width="*"/>
                                         <DataGridTextColumn Header="Distance from Joint (in)"
                                                             Binding="{Binding DistanceFromJointInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Hanger Type"
+                                                            Binding="{Binding HangerType, UpdateSourceTrigger=LostFocus}"
+                                                            Width="*"/>
+                                        <DataGridTextColumn Header="Rod Dia (in)"
+                                                            Binding="{Binding RodDiameterInches, UpdateSourceTrigger=LostFocus, StringFormat=0.###}"
                                                             Width="*"/>
                                     </DataGrid.Columns>
                                 </DataGrid>

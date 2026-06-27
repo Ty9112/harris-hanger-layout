@@ -33,7 +33,13 @@ namespace HangerLayout.Revit
                 try
                 {
                     using var ms     = new MemoryStream(bytes, i, bytes.Length - i);
-                    using var zlib   = new ZLibStream(ms, CompressionMode.Decompress);
+#if NETFRAMEWORK
+                    // net48: System.IO.Compression is banned in a Revit add-in (Revit 2024 conflict) — decode the
+                    // zlib stream with SharpZipLib's inflater (it reads the 2-byte zlib header itself, same offset).
+                    using Stream zlib = new ICSharpCode.SharpZipLib.Zip.Compression.Streams.InflaterInputStream(ms);
+#else
+                    using Stream zlib = new ZLibStream(ms, CompressionMode.Decompress);
+#endif
                     using var outBuf = new MemoryStream();
                     zlib.CopyTo(outBuf);
                     var data = outBuf.ToArray();
