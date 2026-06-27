@@ -55,12 +55,18 @@ like" reading of the MIT terms.
 
 ## Install (no compiling required)
 
-1. **Download the ZIP that matches your Revit version** from
-   <https://github.com/sbuchanan01/hanger-layout-for-revit/releases>:
-   - `HangerLayout-Revit2025-v1.0.0.zip` for Revit 2025
-   - `HangerLayout-Revit2026-v1.0.0.zip` for Revit 2026
-2. Extract `HangerLayout.dll` and `HangerLayout.addin`.
-3. Drop **both files** into your version-matched Revit add-ins folder:
+1. **Download the ZIP that matches your Revit version** from this repo's
+   [Releases](https://github.com/Ty9112/harris-hanger-layout/releases):
+   - `HangerLayout-Revit2023-v1.1.0.zip` for Revit 2023
+   - `HangerLayout-Revit2024-v1.1.0.zip` for Revit 2024
+   - `HangerLayout-Revit2025-v1.1.0.zip` for Revit 2025
+   - `HangerLayout-Revit2026-v1.1.0.zip` for Revit 2026
+2. Extract **all files** from the ZIP. The Revit 2023/2024 builds bundle a few
+   dependency DLLs next to `HangerLayout.dll` + `HangerLayout.addin` — keep them
+   together (Revit loads them from the same folder).
+3. Drop **all the extracted files** into your version-matched Revit add-ins folder:
+   - Revit 2023 → `%APPDATA%\Autodesk\Revit\Addins\2023\`
+   - Revit 2024 → `%APPDATA%\Autodesk\Revit\Addins\2024\`
    - Revit 2025 → `%APPDATA%\Autodesk\Revit\Addins\2025\`
    - Revit 2026 → `%APPDATA%\Autodesk\Revit\Addins\2026\`
 
@@ -86,14 +92,22 @@ Full step-by-step with screenshots: [docs/installation.md](docs/installation.md)
 5. In **Hanger Placement**, pick a Service (Pipe Type / Hanger button), then
    **Apply** with parts selected.
 
+> **Shortcut:** instead of adding spec rows by hand, click **Import Table
+> (CSV/Excel)** to load a whole hanger schedule at once — see
+> [`docs/sample-hanger-schedule.csv`](docs/sample-hanger-schedule.csv) for the
+> expected columns and units. **Import from Fabrication Config** pulls specs
+> straight from your Fab database's `HSpecs.MAP`.
+
 Full user guide: [docs/user-guide.md](docs/user-guide.md).
 
 ---
 
 ## Modify the code
 
-The repo is a standard .NET 8 / C# 12 project. Any compatible toolchain
-works:
+The repo **multi-targets** — net48 (Revit 2023/2024) and net8.0-windows
+(Revit 2025/2026), selected by the `RevitVersion` MSBuild property
+(`dotnet build -c Debug -p:RevitVersion=2024`; defaults to 2026). Any
+compatible toolchain works:
 
 - **Visual Studio 2022 / 2026 Community** (free) — open `src/HangerLayout.csproj`.
 - **JetBrains Rider** — open the same csproj.
@@ -119,4 +133,7 @@ Autodesk evaluation disclaimer.
 
 ## Acknowledgements
 
-Built against the **Revit 2026** and **Autodesk Fabrication MEP** APIs.
+Forked from **[Scott Buchanan's Hanger Layout for Revit](https://github.com/sbuchanan01/hanger-layout-for-revit)**
+(MIT). This fork adds CSV / Excel hanger-schedule import and dual-target support
+for Revit 2023–2026. Built against the **Revit 2023–2026** and **Autodesk
+Fabrication MEP** APIs.
