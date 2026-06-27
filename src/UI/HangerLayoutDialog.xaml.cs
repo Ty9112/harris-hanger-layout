@@ -132,7 +132,7 @@ namespace HangerLayout.UI
                     var parts = CollectParts(doc, uiDoc, mode, scope, service, prePicked);
                     foreach (var fp in parts)
                     {
-                        long cv = fp.Category?.Id.Value ?? 0;
+                        long cv = fp.Category?.Id.ToIdValue() ?? 0;
                         if (cv == (long)BuiltInCategory.OST_FabricationPipework)
                         {
                             hasPipe = true;
@@ -572,7 +572,7 @@ namespace HangerLayout.UI
                         string note = openCount == 1 && chosenIdx != bestIdx
                             ? "  [auto-picked open end]"
                             : "";
-                        label   = $"id {bestPart.Id.Value} conn[{chosenIdx}] ({bestPart.ServiceName}){note}";
+                        label   = $"id {bestPart.Id.ToIdValue()} conn[{chosenIdx}] ({bestPart.ServiceName}){note}";
                     }
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
@@ -726,6 +726,12 @@ namespace HangerLayout.UI
         // model dirty so the user reviews them and explicitly hits Save Specs.
         private void ImportFromFab_Click(object sender, RoutedEventArgs e)
         {
+#if NETFRAMEWORK
+            // The HSpecs.MAP reader needs zlib (System.IO.Compression), which is unsafe on net48 in a Revit
+            // add-in (Revit 2024 journal-verified conflict). On Revit 2023/2024, use Import Table (CSV/Excel).
+            ViewModel.StatusText = "Import from Fabrication Config requires Revit 2025+. " +
+                                   "On this version, use Import Table (CSV/Excel) instead.";
+#else
             HangerLayoutApp.HangerHandler!.SetAction(uiApp =>
             {
                 var doc = uiApp.ActiveUIDocument.Document;
@@ -810,6 +816,60 @@ namespace HangerLayout.UI
                 });
             });
             HangerLayoutApp.HangerEvent!.Raise();
+#endif
+        }
+
+        // ── Import from a Harris hanger schedule table (CSV / Excel) ───────────
+        // Pure file IO (no Revit API) so it runs entirely on the UI thread: pick a file, parse it into specs,
+        // then Merge / Replace into the dialog exactly like the Fab-Config import. The user reviews + Saves.
+        private void ImportTable_Click(object sender, RoutedEventArgs e)
+        {
+            var ofd = new Microsoft.Win32.OpenFileDialog
+            {
+                Title  = "Import Hanger Schedule",
+                Filter = "Hanger schedule (*.csv;*.xlsx)|*.csv;*.xlsx|CSV (*.csv)|*.csv|Excel (*.xlsx)|*.xlsx",
+                CheckFileExists = true,
+            };
+            if (ofd.ShowDialog(this) != true) return;
+            string path = ofd.FileName;
+
+            List<SupportSpec> imported;
+            string? error = null;
+            try
+            {
+                var rows = HangerScheduleImporter.Read(path);
+                imported = HangerScheduleImporter.ToSupportSpecs(rows);
+            }
+            catch (Exception ex)
+            {
+                imported = new List<SupportSpec>();
+                error = ex.Message;
+            }
+
+            if (error != null) { ViewModel.StatusText = $"Import failed: {error}"; return; }
+            if (imported.Count == 0)
+            {
+                ViewModel.StatusText =
+                    $"Import found 0 specs in {System.IO.Path.GetFileName(path)} — check the schedule's column " +
+                    "headers (Service / Media / Material / Insulation / Pipe Size / Hanger Spacing …).";
+                return;
+            }
+
+            int pipeCount = imported.Count(s => s.Domain == HangerDomain.Pipe);
+            int ductCount = imported.Count(s => s.Domain == HangerDomain.Duct);
+            var choice = ShowImportChoiceDialog(imported.Count, pipeCount, ductCount, System.IO.Path.GetFileName(path));
+            if (choice == ImportChoice.Cancel) return;
+            bool replace = choice == ImportChoice.Replace;
+
+            ViewModel.ImportSpecs(imported, replace);
+            // Echo the smallest imported band so a feet/inches mix-up (12x) is obvious before Apply (codebro).
+            var sampleRow = imported.SelectMany(s => s.Rows).FirstOrDefault();
+            string sample = sampleRow == null ? "" :
+                $" (e.g. ≤{sampleRow.MaxSizeInches:0.##}\" → {sampleRow.StraightSpacingInches:0.##}\" spacing" +
+                " — if that looks 12x off, your schedule is in inches).";
+            ViewModel.StatusText =
+                $"Imported {imported.Count} spec(s) from {System.IO.Path.GetFileName(path)} " +
+                $"({(replace ? "REPLACE ALL" : "MERGE")}).{sample} Review the changes and click Save Specs to persist.";
         }
 
         // ── Apply ────────────────────────────────────────────────────────────
@@ -910,7 +970,7 @@ namespace HangerLayout.UI
                     // repeated Apply runs (which would otherwise stack hangers
                     // visually and mask the actual current placement).
                     var targetIds = new HashSet<long>(
-                        pipes.Concat(ducts).Select(p => p.Id.Value));
+                        pipes.Concat(ducts).Select(p => p.Id.ToIdValue()));
                     var hangersToDelete = new List<ElementId>();
                     foreach (var h in new FilteredElementCollector(doc)
                         .OfCategory(BuiltInCategory.OST_FabricationHangers)
@@ -921,7 +981,7 @@ namespace HangerLayout.UI
                         {
                             var info = h.GetHostedInfo();
                             if (info != null && info.IsValidObject &&
-                                targetIds.Contains(info.HostId.Value))
+                                targetIds.Contains(info.HostId.ToIdValue()))
                             {
                                 hangersToDelete.Add(h.Id);
                             }
@@ -981,7 +1041,7 @@ namespace HangerLayout.UI
                         var o = effectiveStartOrigin!;
                         outcome.Notes.Add(
                             $"[diag] flow map covers {flowMap.Count} part(s) " +
-                            $"from start id {startId!.Value} " +
+                            $"from start id {startId!.ToIdValue()} " +
                             $"origin=({o.X:F3},{o.Y:F3},{o.Z:F3}){revNote}");
                         DumpFlowMapToFile(doc, flowMap, pipes.Concat(ducts).ToList(),
                                            startId!, effectiveStartOrigin!);
@@ -1098,7 +1158,7 @@ namespace HangerLayout.UI
         private static bool IsPipeOrDuctCategory(FabricationPart fp)
         {
             if (fp.Category == null) return false;
-            long cv = fp.Category.Id.Value;
+            long cv = fp.Category.Id.ToIdValue();
             return cv == (long)BuiltInCategory.OST_FabricationPipework
                 || cv == (long)BuiltInCategory.OST_FabricationDuctwork;
         }
@@ -1110,7 +1170,7 @@ namespace HangerLayout.UI
             var ducts = new List<FabricationPart>();
             foreach (var fp in parts)
             {
-                long cv = fp.Category?.Id.Value ?? 0;
+                long cv = fp.Category?.Id.ToIdValue() ?? 0;
                 if      (cv == (long)BuiltInCategory.OST_FabricationPipework) pipes.Add(fp);
                 else if (cv == (long)BuiltInCategory.OST_FabricationDuctwork) ducts.Add(fp);
             }
@@ -1174,7 +1234,7 @@ namespace HangerLayout.UI
                 using var sw = new System.IO.StreamWriter(path, append: true);
                 sw.WriteLine();
                 sw.WriteLine($"=== Start pipe connector connectivity ===");
-                sw.WriteLine($"Start part id: {startId.Value}");
+                sw.WriteLine($"Start part id: {startId.ToIdValue()}");
                 var conns = ConnectorHelper.GetPhysicalConnectors(startPart);
                 for (int i = 0; i < conns.Count; i++)
                 {
@@ -1202,13 +1262,13 @@ namespace HangerLayout.UI
                 using var sw = new System.IO.StreamWriter(path, append: true);
                 sw.WriteLine();
                 sw.WriteLine($"=== Flow map dump @ {DateTime.Now:HH:mm:ss} ===");
-                sw.WriteLine($"Start: id {startId.Value} origin=({startOrigin.X:F3},{startOrigin.Y:F3},{startOrigin.Z:F3})");
+                sw.WriteLine($"Start: id {startId.ToIdValue()} origin=({startOrigin.X:F3},{startOrigin.Y:F3},{startOrigin.Z:F3})");
                 sw.WriteLine($"Total mapped parts: {flowMap.Count}");
                 sw.WriteLine();
                 sw.WriteLine("Mapped parts (id : category : near-conn-origin):");
                 foreach (var kv in flowMap.Entries)
                 {
-                    var elem = doc.GetElement(new ElementId(kv.Key));
+                    var elem = doc.GetElement(kv.Key.ToElementId());
                     string cat = "?";
                     string extra = "";
                     if (elem is FabricationPart fp)
@@ -1235,7 +1295,7 @@ namespace HangerLayout.UI
                 foreach (var fp in targets)
                 {
                     bool mapped = flowMap.IsKnown(fp.Id);
-                    sw.WriteLine($"  {fp.Id.Value} : {(mapped ? "MAPPED" : "UNMAPPED")}");
+                    sw.WriteLine($"  {fp.Id.ToIdValue()} : {(mapped ? "MAPPED" : "UNMAPPED")}");
                 }
             }
             catch { /* best-effort */ }
@@ -1816,6 +1876,8 @@ namespace HangerLayout.UI
                     StraightSpacingInches   = r.StraightSpacingInches,
                     FittingDistanceInches   = r.FittingDistanceInches,
                     DistanceFromJointInches = r.DistanceFromJointInches,
+                    HangerType              = r.HangerType,
+                    RodDiameterInches       = r.RodDiameterInches,
                 });
             }
             return vm;
@@ -1838,6 +1900,8 @@ namespace HangerLayout.UI
                     StraightSpacingInches   = r.StraightSpacingInches,
                     FittingDistanceInches   = r.FittingDistanceInches,
                     DistanceFromJointInches = r.DistanceFromJointInches,
+                    HangerType              = r.HangerType,
+                    RodDiameterInches       = r.RodDiameterInches,
                 }).ToList()
             };
         }
@@ -1867,6 +1931,14 @@ namespace HangerLayout.UI
 
         private double _distanceFromJointInches;
         public double DistanceFromJointInches { get => _distanceFromJointInches; set => SetField(ref _distanceFromJointInches, value); }
+
+        // Rich-schedule fields carried from the table importer so they survive import -> edit -> Apply / Save
+        // (without these on the VM, Snapshot() would strip them and placement/save would lose the per-band data).
+        private string _hangerType = "";
+        public string HangerType { get => _hangerType; set => SetField(ref _hangerType, value); }
+
+        private double _rodDiameterInches;
+        public double RodDiameterInches { get => _rodDiameterInches; set => SetField(ref _rodDiameterInches, value); }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged([CallerMemberName] string? n = null)

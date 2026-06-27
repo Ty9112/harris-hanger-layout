@@ -30,7 +30,7 @@ namespace HangerLayout.Revit
         private const double OriginTolFt = 0.1;
 
         public bool IsKnown(ElementId id) =>
-            _nearEndOrigin.ContainsKey(id.Value);
+            _nearEndOrigin.ContainsKey(id.ToIdValue());
 
         public int Count => _nearEndOrigin.Count;
 
@@ -39,13 +39,13 @@ namespace HangerLayout.Revit
 
         public bool IsNearEnd(ElementId id, Connector c)
         {
-            if (!_nearEndOrigin.TryGetValue(id.Value, out var near)) return false;
+            if (!_nearEndOrigin.TryGetValue(id.ToIdValue(), out var near)) return false;
             return c.Origin.DistanceTo(near) <= OriginTolFt;
         }
 
         public bool IsFarEnd(ElementId id, Connector c)
         {
-            if (!_nearEndOrigin.TryGetValue(id.Value, out var near)) return false;
+            if (!_nearEndOrigin.TryGetValue(id.ToIdValue(), out var near)) return false;
             return c.Origin.DistanceTo(near) > OriginTolFt;
         }
 
@@ -78,7 +78,7 @@ namespace HangerLayout.Revit
             }
             if (startNear < 0 || bestD > OriginTolFt) startNear = 0;
             // bestD here is already DistanceTo (computed above) — fine.
-            map._nearEndOrigin[startPart.Id.Value] = startConns[startNear].Origin;
+            map._nearEndOrigin[startPart.Id.ToIdValue()] = startConns[startNear].Origin;
 
             var queue = new Queue<FabricationPart>();
             queue.Enqueue(startPart);
@@ -100,7 +100,7 @@ namespace HangerLayout.Revit
                         if (other == null) continue;
                         if (other.Owner is not FabricationPart neighbor) continue;
                         if (neighbor.Id == part.Id) continue;
-                        if (map._nearEndOrigin.ContainsKey(neighbor.Id.Value)) continue;
+                        if (map._nearEndOrigin.ContainsKey(neighbor.Id.ToIdValue())) continue;
                         // Skip hangers — they're branches off the run, not part
                         // of the flow path between pipes/fittings, and they
                         // would otherwise eat into the "covered" count and
@@ -113,7 +113,7 @@ namespace HangerLayout.Revit
                         // matches the connection point. Store the ORIGIN, not
                         // an index — index lookups suffer from unstable
                         // ConnectorManager enumeration order.
-                        map._nearEndOrigin[neighbor.Id.Value] = other.Origin;
+                        map._nearEndOrigin[neighbor.Id.ToIdValue()] = other.Origin;
                         queue.Enqueue(neighbor);
                     }
                 }

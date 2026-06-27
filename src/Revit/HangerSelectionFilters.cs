@@ -13,7 +13,7 @@ namespace HangerLayout.Revit
         {
             if (elem is not FabricationPart fp) return false;
             if (fp.Category == null) return false;
-            long catVal = fp.Category.Id.Value;
+            long catVal = fp.Category.Id.ToIdValue();
             return catVal == (long)BuiltInCategory.OST_FabricationPipework
                 || catVal == (long)BuiltInCategory.OST_FabricationDuctwork;
         }

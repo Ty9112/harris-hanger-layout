@@ -1,7 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Revit version drives the target framework: 2023/2024 -> net48 (Revit 2024 API),
+         2025/2026 -> net8.0-windows (Revit 2025 API). Build one with -p:RevitVersion=2024. Default 2026.
+         A net48 DLL silently fails to load in Revit 2025/2026 and vice-versa, so the framework MUST track
+         the Revit version. (Harris dual-target — mirrors harris-revit-tools.) -->
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2026</RevitVersion>
+    <TargetFramework Condition="'$(RevitVersion)' == '2023' Or '$(RevitVersion)' == '2024'">net48</TargetFramework>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net8.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <UseWPF>true</UseWPF>
     <AssemblyName>HangerLayout</AssemblyName>
     <RootNamespace>HangerLayout</RootNamespace>
@@ -28,7 +35,6 @@
     needs to branch on the API surface.
   -->
   <PropertyGroup>
-    <RevitVersion Condition="'$(RevitVersion)' == ''">2026</RevitVersion>
     <RevitInstallPath Condition="'$(RevitInstallPath)' == ''">C:\Program Files\Autodesk\Revit $(RevitVersion)</RevitInstallPath>
     <OutputPath>bin\$(Configuration)-Revit$(RevitVersion)\</OutputPath>
     <IntermediateOutputPath>obj\$(Configuration)-Revit$(RevitVersion)\</IntermediateOutputPath>
@@ -44,6 +50,22 @@
       <HintPath>$(RevitInstallPath)\RevitAPIUI.dll</HintPath>
       <Private>False</Private>
     </Reference>
+  </ItemGroup>
+
+  <!-- net48 (Revit 2023/2024) doesn't ship System.Text.Json in the framework — HangerSpecStore uses it to
+       serialize specs into ExtensibleStorage. net8 has it built in, so reference the package ONLY for net48. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <!-- The Fab-Config import (HSpecs.MAP) decodes a zlib stream via System.IO.Compression, which is banned on
+       net48 in a Revit add-in (Revit 2024 journal-verified conflict). Exclude those files on net48 — Revit
+       2023/2024 users import the Harris schedule via Import Table (CSV/Excel) instead. The ImportFromFab handler
+       is #if-guarded to a 'requires Revit 2025+' message on net48. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Compile Remove="Revit\MapFileHelper.cs" />
+    <Compile Remove="Revit\HSpecsMapReader.cs" />
+    <Compile Remove="Revit\SupportMapDumper.cs" />
   </ItemGroup>
 
   <!--

@@ -318,6 +318,11 @@
                             Click="ImportFromFab_Click"
                             Margin="8,0,0,0"
                             ToolTip="Read Hanger Specifications from the active Fabrication config's HSpecs.MAP and merge / replace into this list."/>
+                    <Button Style="{StaticResource SecondaryButton}"
+                            Content="Import Table (CSV/Excel)…"
+                            Click="ImportTable_Click"
+                            Margin="8,0,0,0"
+                            ToolTip="Import a Harris hanger schedule (CSV or .xlsx). Each row's Service / Media / Material / Insulation / Size sets the spacing, setbacks, hanger type, and rod diameter."/>
                 </StackPanel>
             </Grid>
         </Expander>

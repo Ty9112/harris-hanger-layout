@@ -54,6 +54,15 @@ namespace HangerLayout.Models
         public double StraightSpacingInches   { get; set; }
         public double FittingDistanceInches   { get; set; }
         public double DistanceFromJointInches { get; set; }
+
+        // ── Rich Harris-schedule columns (added for the table importer) ────────────────────────────────
+        // Defaulted so specs saved by the original add-in (which lack these) still deserialize cleanly — they
+        // are serialized as JSON properties, so a missing value just becomes the default (System.Text.Json).
+        /// <summary>Hanger component type for this size band, e.g. "Clevis" / "Loop" — resolved to a hanger
+        /// button at placement time. Empty = fall back to the spec's HangerOverride / auto-pick.</summary>
+        public string HangerType { get; set; } = "";
+        /// <summary>Threaded-rod diameter (inches) for this size band, e.g. 0.375. 0 = unspecified.</summary>
+        public double RodDiameterInches { get; set; }
     }
 
     public class SupportSpec
@@ -74,6 +83,16 @@ namespace HangerLayout.Models
         /// projects — those specs continue to apply to both round and rect
         /// ducts until the user explicitly tags them.</summary>
         public DuctShape DuctShape { get; set; } = DuctShape.Any;
+
+        // ── Rich Harris-schedule match attributes (added for the table importer) ───────────────────────
+        // A Harris hanger schedule row is keyed by Service + Media + Material + Insulation + Size. Name holds
+        // the Service; these hold the rest. Empty = "matches any" (back-compat with pre-import specs).
+        /// <summary>Media / system the spec applies to, e.g. "Domestic Hot Water", "Drainage".</summary>
+        public string Media      { get; set; } = "";
+        /// <summary>Pipe material, e.g. "Copper", "Cast Iron No Hub", "Stainless STG".</summary>
+        public string Material   { get; set; } = "";
+        /// <summary>Pipe insulation type, e.g. "Bare Pipe" or the insulation spec.</summary>
+        public string Insulation { get; set; } = "";
 
         public List<SupportSpecRow> Rows          { get; set; } = new();
     }

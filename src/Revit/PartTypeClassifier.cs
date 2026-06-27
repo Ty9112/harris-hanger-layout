@@ -258,7 +258,7 @@ namespace HangerLayout.Revit
 
             // "PIPE" keyword — only treat as straight pipe if NOT also a fitting keyword
             string combined = alias + " " + desc;
-            if (combined.Contains("PIPE", StringComparison.OrdinalIgnoreCase)
+            if (combined.IndexOf("PIPE", StringComparison.OrdinalIgnoreCase) >= 0
                 && !ContainsAny(combined, "NIPPLE", "SWAGE"))
                 return true;
 
@@ -406,6 +406,6 @@ namespace HangerLayout.Revit
         }
 
         private static bool ContainsAny(string source, params string[] tokens)
-            => tokens.Any(t => source.Contains(t, StringComparison.OrdinalIgnoreCase));
+            => tokens.Any(t => source.IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0); // net48 has no Contains(string,cmp)
     }
 }

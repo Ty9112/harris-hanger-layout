@@ -92,13 +92,13 @@ namespace HangerLayout.Revit
             // Single-segment chains fall through to the original per-segment
             // path so behaviour is unchanged for non-chained content.
             var partList = parts.ToList();
-            var selectedIds = new HashSet<long>(partList.Select(p => p.Id.Value));
+            var selectedIds = new HashSet<long>(partList.Select(p => p.Id.ToIdValue()));
             bool spanChains = spec.StraightJoints == StraightJointMode.NotAtJoint;
             var visited = new HashSet<long>();
 
             foreach (var part in partList)
             {
-                if (visited.Contains(part.Id.Value)) continue;
+                if (visited.Contains(part.Id.ToIdValue())) continue;
                 try
                 {
                     ChainInfo chain = spanChains
@@ -109,7 +109,7 @@ namespace HangerLayout.Revit
                         // Mark every segment in the chain as visited so we don't
                         // re-process them when the outer loop reaches them.
                         foreach (var seg in chain.Segments)
-                            visited.Add(seg.Part.Id.Value);
+                            visited.Add(seg.Part.Id.ToIdValue());
                         PlaceForChain(doc, chain, spec, sortedRows, outcome, flowMap, attachToStructure, minSpacingFt);
                     }
                     else
@@ -119,7 +119,7 @@ namespace HangerLayout.Revit
                 }
                 catch (Exception ex)
                 {
-                    outcome.Notes.Add($"[skip {part.Id.Value}] {ex.Message}");
+                    outcome.Notes.Add($"[skip {part.Id.ToIdValue()}] {ex.Message}");
                 }
             }
         }
@@ -147,7 +147,7 @@ namespace HangerLayout.Revit
             if (conns.Count != 2)
             {
                 outcome.SkippedShort++;
-                outcome.Notes.Add($"[skip {part.Id.Value}] not 2 end connectors (have {conns.Count})");
+                outcome.Notes.Add($"[skip {part.Id.ToIdValue()}] not 2 end connectors (have {conns.Count})");
                 return;
             }
 
@@ -161,7 +161,7 @@ namespace HangerLayout.Revit
             if (length < 1e-6)
             {
                 outcome.SkippedShort++;
-                outcome.Notes.Add($"[skip {part.Id.Value}] zero-length axis");
+                outcome.Notes.Add($"[skip {part.Id.ToIdValue()}] zero-length axis");
                 return;
             }
             XYZ axis = axisVec.Normalize();
@@ -203,13 +203,13 @@ namespace HangerLayout.Revit
                 XYZ? nearOrigin = null;
                 foreach (var kv in flowMap!.Entries)
                 {
-                    if (kv.Key == part.Id.Value) { nearOrigin = kv.Value; break; }
+                    if (kv.Key == part.Id.ToIdValue()) { nearOrigin = kv.Value; break; }
                 }
                 string n = nearOrigin == null
                     ? "(none)"
                     : $"({nearOrigin.X:F3},{nearOrigin.Y:F3},{nearOrigin.Z:F3})";
                 outcome.Notes.Add(
-                    $"[flow-bug {part.Id.Value}] both ends classify '{(aIsFar == true ? "far" : "near")}' " +
+                    $"[flow-bug {part.Id.ToIdValue()}] both ends classify '{(aIsFar == true ? "far" : "near")}' " +
                     $"c0=({c0.Origin.X:F3},{c0.Origin.Y:F3},{c0.Origin.Z:F3}) " +
                     $"c1=({c1.Origin.X:F3},{c1.Origin.Y:F3},{c1.Origin.Z:F3}) " +
                     $"stored-near={n} c0Type={c0.ConnectorType} c1Type={c1.ConnectorType} " +
@@ -222,7 +222,7 @@ namespace HangerLayout.Revit
             if (flowMap != null && !partKnownToFlow)
             {
                 outcome.Notes.Add(
-                    $"[unmapped {part.Id.Value}] not reached by flow BFS — " +
+                    $"[unmapped {part.Id.ToIdValue()}] not reached by flow BFS — " +
                     $"falling back to symmetric anchor (both ends).");
             }
 
@@ -235,7 +235,7 @@ namespace HangerLayout.Revit
             string sideA = aIsFar == null ? "?" : (aIsFar.Value ? "far"  : "near");
             string sideB = bIsFar == null ? "?" : (bIsFar.Value ? "far"  : "near");
             outcome.Notes.Add(
-                $"[anchor {part.Id.Value}] len={length * 12:F1}\" " +
+                $"[anchor {part.Id.ToIdValue()}] len={length * 12:F1}\" " +
                 $"endA={DescribeEnd(doc, part, c0)}/{sideA}/{(endA.Anchored ? endA.SetbackInches.ToString("0.#") : "no")} " +
                 $"endB={DescribeEnd(doc, part, c1)}/{sideB}/{(endB.Anchored ? endB.SetbackInches.ToString("0.#") : "no")}");
 
@@ -246,14 +246,14 @@ namespace HangerLayout.Revit
             if (row.StraightSpacingInches <= 0)
             {
                 outcome.SkippedShort++;
-                outcome.Notes.Add($"[skip {part.Id.Value}] spec straight-spacing is 0");
+                outcome.Notes.Add($"[skip {part.Id.ToIdValue()}] spec straight-spacing is 0");
                 return;
             }
             if (freeLenFt <= 1e-6)
             {
                 outcome.SkippedShort++;
                 outcome.Notes.Add(
-                    $"[skip {part.Id.Value}] length {length * 12:F1}\" ≤ end-setbacks " +
+                    $"[skip {part.Id.ToIdValue()}] length {length * 12:F1}\" ≤ end-setbacks " +
                     $"({endA.SetbackInches:F1}\"+{endB.SetbackInches:F1}\")");
                 return;
             }
@@ -277,7 +277,7 @@ namespace HangerLayout.Revit
             if (positionsFt.Count == 0)
             {
                 outcome.SkippedShort++;
-                outcome.Notes.Add($"[skip {part.Id.Value}] no positions computed");
+                outcome.Notes.Add($"[skip {part.Id.ToIdValue()}] no positions computed");
                 return;
             }
 
@@ -293,7 +293,7 @@ namespace HangerLayout.Revit
             if (button == null)
             {
                 outcome.SkippedNoButton++;
-                outcome.Notes.Add($"[no hanger {part.Id.Value}] service '{serviceName}': {hangerNote}");
+                outcome.Notes.Add($"[no hanger {part.Id.ToIdValue()}] service '{serviceName}': {hangerNote}");
                 return;
             }
 
@@ -322,7 +322,7 @@ namespace HangerLayout.Revit
                 {
                     outcome.CreateFailed++;
                     outcome.Notes.Add(
-                        $"[create-failed {part.Id.Value}] btn='{button.Name}' cond={condition} " +
+                        $"[create-failed {part.Id.ToIdValue()}] btn='{button.Name}' cond={condition} " +
                         $"dist={offsetFt:F2}ft: {createErr ?? "Create returned null"}");
                     continue;
                 }
@@ -404,7 +404,7 @@ namespace HangerLayout.Revit
                 using var sw = new System.IO.StreamWriter(path, append: true);
                 sw.WriteLine();
                 sw.WriteLine("=== First placed hanger ===");
-                sw.WriteLine($"Id={hanger.Id.Value}  Category={hanger.Category?.Name}");
+                sw.WriteLine($"Id={hanger.Id.ToIdValue()}  Category={hanger.Category?.Name}");
 
                 // Connectors
                 try
@@ -453,7 +453,7 @@ namespace HangerLayout.Revit
                             StorageType.Double      => p.AsDouble().ToString("F4"),
                             StorageType.Integer     => p.AsInteger().ToString(),
                             StorageType.String      => p.AsString() ?? "",
-                            StorageType.ElementId   => p.AsElementId().Value.ToString(),
+                            StorageType.ElementId   => p.AsElementId().ToIdValue().ToString(),
                             _                       => "?"
                         };
                     }
@@ -775,7 +775,7 @@ namespace HangerLayout.Revit
                     positions.Add(pos);
                     pos += spacingFt;
                 }
-                if (rightBound - positions[^1] > epsFt)
+                if (rightBound - positions[positions.Count - 1] > epsFt) // [^1] needs System.Index (absent on net48)
                     positions.Add(rightBound);
                 return positions;
             }
@@ -1488,12 +1488,12 @@ namespace HangerLayout.Revit
         {
             var current = from;
             var exit = exitConn;
-            var seen = new HashSet<long> { from.Id.Value };
+            var seen = new HashSet<long> { from.Id.ToIdValue() };
             while (true)
             {
                 var next = FindNextStraightInChain(doc, current, exit);
-                if (next == null || seen.Contains(next.Id.Value)) break;
-                if (!selectionIds.Contains(next.Id.Value)) break;  // outside selection — chain breaks
+                if (next == null || seen.Contains(next.Id.ToIdValue())) break;
+                if (!selectionIds.Contains(next.Id.ToIdValue())) break;  // outside selection — chain breaks
 
                 var nextAll = ConnectorHelper.GetPhysicalConnectors(next);
                 var nextEnds = nextAll.Where(c => c.ConnectorType == ConnectorType.End).ToList();
@@ -1532,7 +1532,7 @@ namespace HangerLayout.Revit
                 result.Add(new ChainSegment {
                     Part = next, LeftConn = leftConn, RightConn = rightConn, LengthFt = lenFt
                 });
-                seen.Add(next.Id.Value);
+                seen.Add(next.Id.ToIdValue());
                 current = next;
                 exit = newExit;
             }
@@ -1647,14 +1647,14 @@ namespace HangerLayout.Revit
             {
                 outcome.SkippedShort++;
                 outcome.Notes.Add(
-                    $"[skip chain head={leftSeg.Part.Id.Value}] " +
+                    $"[skip chain head={leftSeg.Part.Id.ToIdValue()}] " +
                     $"no positions computed (chain {chain.Segments.Count} seg, " +
                     $"{chain.TotalLengthFt * 12:F1}\")");
                 return;
             }
 
             outcome.Notes.Add(
-                $"[chain head={leftSeg.Part.Id.Value}] " +
+                $"[chain head={leftSeg.Part.Id.ToIdValue()}] " +
                 $"{chain.Segments.Count} seg total {chain.TotalLengthFt * 12:F1}\", " +
                 $"placing {positionsFt.Count} hanger(s) — " +
                 $"L:{(endLeft.Anchored ? endLeft.SetbackInches.ToString("0.#") : "no")} " +
@@ -1705,7 +1705,7 @@ namespace HangerLayout.Revit
                 {
                     outcome.SkippedNoButton++;
                     outcome.Notes.Add(
-                        $"[no hanger {host.Part.Id.Value}] service '{serviceName}': {hangerNote}");
+                        $"[no hanger {host.Part.Id.ToIdValue()}] service '{serviceName}': {hangerNote}");
                     continue;
                 }
 
@@ -1718,7 +1718,7 @@ namespace HangerLayout.Revit
                 catch (Exception ex)
                 {
                     outcome.CreateFailed++;
-                    outcome.Notes.Add($"[create-fail {host.Part.Id.Value}@{localFt * 12:F1}\"] {ex.Message}");
+                    outcome.Notes.Add($"[create-fail {host.Part.Id.ToIdValue()}@{localFt * 12:F1}\"] {ex.Message}");
                     continue;
                 }
                 if (hanger != null)
