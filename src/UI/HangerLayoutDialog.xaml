@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:HangerLayout.UI"
         Title="Hanger Layout"
-        Width="900" Height="700"
+        Width="1080" Height="720"
         ResizeMode="CanResize"
-        MinWidth="820" MinHeight="420"
+        MinWidth="960" MinHeight="420"
         WindowStartupLocation="CenterScreen"
         Topmost="True"
         ShowInTaskbar="False"
@@ -106,14 +106,22 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
+                                <!-- Blue identity columns — editable. Service (Name) also selects which
+                                     Fab-config hangers populate the Hanger Type dropdown in the grid below. -->
                                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-                                    <TextBlock Style="{StaticResource Lbl}" Text="Name:"/>
-                                    <TextBox Width="240"
-                                             Text="{Binding SelectedPipeSpec.Name, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <TextBlock Style="{StaticResource Lbl}" Foreground="#777777" Margin="12,0,0,0"
-                                               VerticalAlignment="Center"
-                                               Text="{Binding SelectedPipeSpec.MatchSummary}"
-                                               ToolTip="Imported match keys (Media &#183; Material &#183; Insulation)"/>
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Service:"/>
+                                    <TextBox Width="170"
+                                             Text="{Binding SelectedPipeSpec.Name, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Service name. Also picks which Fab-config hangers fill the Hanger Type dropdown."/>
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Media:" Margin="12,0,8,0"/>
+                                    <TextBox Width="120"
+                                             Text="{Binding SelectedPipeSpec.Media, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Material:" Margin="12,0,8,0"/>
+                                    <TextBox Width="120"
+                                             Text="{Binding SelectedPipeSpec.Material, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Style="{StaticResource Lbl}" Text="Insulation:" Margin="12,0,8,0"/>
+                                    <TextBox Width="120"
+                                             Text="{Binding SelectedPipeSpec.Insulation, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
                                     <TextBlock Style="{StaticResource Lbl}" Text="Hanger Override:"/>
@@ -157,26 +165,47 @@
                                           CanUserAddRows="False"
                                           CanUserDeleteRows="False"
                                           GridLinesVisibility="Horizontal"
+                                          HorizontalScrollBarVisibility="Auto"
                                           RowHeight="24">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="&lt;= Size (in)"
                                                             Binding="{Binding MaxSizeInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
-                                                            Width="*"/>
-                                        <DataGridTextColumn Header="Straight Spacing (in)"
+                                                            Width="72"/>
+                                        <DataGridTextColumn Header="Hanger OD (in)"
+                                                            Binding="{Binding HangerSizeOdInches, UpdateSourceTrigger=LostFocus, StringFormat=0.###}"
+                                                            Width="90"/>
+                                        <DataGridTextColumn Header="Spacing (in)"
                                                             Binding="{Binding StraightSpacingInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
-                                                            Width="*"/>
-                                        <DataGridTextColumn Header="Fitting Distance (in)"
+                                                            Width="85"/>
+                                        <DataGridTextColumn Header="Fitting (in)"
                                                             Binding="{Binding FittingDistanceInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
-                                                            Width="*"/>
-                                        <DataGridTextColumn Header="Distance from Joint (in)"
+                                                            Width="80"/>
+                                        <DataGridTextColumn Header="Joint (in)"
                                                             Binding="{Binding DistanceFromJointInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
-                                                            Width="*"/>
-                                        <DataGridTextColumn Header="Hanger Type"
-                                                            Binding="{Binding HangerType, UpdateSourceTrigger=LostFocus}"
-                                                            Width="*"/>
+                                                            Width="80"/>
+                                        <DataGridTextColumn Header="Anchor (in)"
+                                                            Binding="{Binding DistanceFromAnchorInches, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"
+                                                            Width="80"/>
+                                        <!-- Hanger Type — live editable dropdown of this service's Fab-config
+                                             hangers (HangerTypeChoices). Editable so a typed value still sticks. -->
+                                        <DataGridTemplateColumn Header="Hanger Type" Width="160">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox IsEditable="True"
+                                                              Padding="2,0" BorderThickness="0" Background="Transparent"
+                                                              VerticalContentAlignment="Center"
+                                                              ItemsSource="{Binding DataContext.HangerTypeChoices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                              Text="{Binding HangerType, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                              ToolTip="Pick a hanger from this service's Fab-config supports, or type your own."/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Insul Insert"
+                                                            Binding="{Binding InsulationInsertType, UpdateSourceTrigger=LostFocus}"
+                                                            Width="120"/>
                                         <DataGridTextColumn Header="Rod Dia (in)"
                                                             Binding="{Binding RodDiameterInches, UpdateSourceTrigger=LostFocus, StringFormat=0.###}"
-                                                            Width="*"/>
+                                                            Width="80"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
 
@@ -333,6 +362,16 @@
                             Click="ImportTable_Click"
                             Margin="8,0,0,0"
                             ToolTip="Import a Harris hanger schedule (CSV or .xlsx). Each row's Service / Media / Material / Insulation / Size sets the spacing, setbacks, hanger type, and rod diameter."/>
+                    <Button Style="{StaticResource SecondaryButton}"
+                            Content="Load from Model…"
+                            Click="LoadFromModel_Click"
+                            Margin="8,0,0,0"
+                            ToolTip="Scan the project (or active view, per the Placement scope) for fabrication pipework and generate one spec per service, with a size band per size found. Merge or Replace, then edit here or Export to CSV."/>
+                    <Button Style="{StaticResource SecondaryButton}"
+                            Content="Export to CSV…"
+                            Click="ExportTable_Click"
+                            Margin="8,0,0,0"
+                            ToolTip="Write the current pipe specs to a Harris hanger-schedule CSV (the same format Import Table reads) so you can edit in Excel and re-import."/>
                 </StackPanel>
             </Grid>
         </Expander>

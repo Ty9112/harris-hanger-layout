@@ -48,6 +48,8 @@ namespace HangerLayout.Revit
             public int OversizeBand   { get; set; }
             public int CreateFailed   { get; set; }
             public bool DumpedDiagnostics { get; set; }
+            public bool RodSetNoted      { get; set; }   // one-shot "[rod] set ..." note
+            public bool RodNotAppldNoted { get; set; }   // one-shot "[rod] not applied ..." note
             public List<ElementId> CreatedIds { get; } = new();
             public List<string> Notes { get; } = new();
         }
@@ -289,7 +291,7 @@ namespace HangerLayout.Revit
             ConnectorProfileType hostShape = ConnectorProfileType.Round;
             try { hostShape = c0.Shape; } catch { }
             var (button, condition, hangerNote) =
-                ResolveHangerButton(doc, serviceName, spec.HangerOverride, sizeInches, hostShape);
+                ResolveHangerButton(doc, serviceName, spec.HangerOverride, row.HangerType, sizeInches, hostShape);
             if (button == null)
             {
                 outcome.SkippedNoButton++;
@@ -335,6 +337,7 @@ namespace HangerLayout.Revit
 
                 outcome.Placed++;
                 outcome.CreatedIds.Add(hanger.Id);
+                TrySetRodDiameter(hanger, row.RodDiameterInches, outcome);
             }
         }
 
@@ -901,8 +904,8 @@ namespace HangerLayout.Revit
         // ────────────────────────────────────────────────────────────────────────
 
         private static (FabricationServiceButton? button, int condition, string note) ResolveHangerButton(
-            Document doc, string serviceName, string? overrideKey, double sizeInches,
-            ConnectorProfileType hostShape)
+            Document doc, string serviceName, string? overrideKey, string? rowHangerType,
+            double sizeInches, ConnectorProfileType hostShape)
         {
             try
             {
@@ -911,6 +914,17 @@ namespace HangerLayout.Revit
 
                 FabricationService? service = ResolveServiceByName(config, serviceName);
                 if (service == null) return (null, 0, "service not found in loaded services");
+
+                // Per-band Hanger Type (from the grid dropdown) is the MOST specific
+                // selection — it wins over the blanket spec-level override. Match a
+                // hanger button in this service by name (exact, then contains). Like
+                // the override, an explicit name bypasses the shape filter.
+                if (!string.IsNullOrWhiteSpace(rowHangerType))
+                {
+                    var (rtBtn, rtCond) = FindHangerButtonByName(service, rowHangerType!, sizeInches);
+                    if (rtBtn != null) return (rtBtn, rtCond, $"row-type:{rowHangerType}");
+                    // no match → fall through to override / auto-pick (note surfaced via default reason)
+                }
 
                 // Override path: match "GroupName|ButtonName" exactly. The user's
                 // explicit choice bypasses the shape filter — if they want a
@@ -1139,6 +1153,48 @@ namespace HangerLayout.Revit
             return (null, 0);
         }
 
+        /// <summary>
+        /// Find a hanger button in the service by NAME (the per-band Hanger Type from
+        /// the grid dropdown), searching every palette. Prefers an exact name match,
+        /// else the first button whose name contains the requested type. Only
+        /// IsAHanger buttons are considered. Returns (null, 0) when nothing matches,
+        /// so the caller falls back to the override / auto-pick paths.
+        /// </summary>
+        private static (FabricationServiceButton? button, int cond) FindHangerButtonByName(
+            FabricationService service, string hangerTypeName, double sizeInches)
+        {
+            string target = (hangerTypeName ?? string.Empty).Trim();
+            if (target.Length == 0) return (null, 0);
+
+            FabricationServiceButton? exact = null, contains = null;
+            int exactCond = 0, containsCond = 0;
+            for (int pi = 0; pi < service.PaletteCount; pi++)
+            {
+                for (int bi = 0; bi < service.GetButtonCount(pi); bi++)
+                {
+                    var btn = service.GetButton(pi, bi);
+                    if (btn == null) continue;
+                    bool isHanger = false;
+                    try { isHanger = btn.IsAHanger; } catch { }
+                    if (!isHanger) continue;
+
+                    string name = btn.Name ?? string.Empty;
+                    if (string.Equals(name, target, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (exact == null) { exact = btn; exactCond = FindHangerConditionForSize(btn, sizeInches); }
+                    }
+                    else if (contains == null &&
+                             name.IndexOf(target, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        contains = btn; containsCond = FindHangerConditionForSize(btn, sizeInches);
+                    }
+                }
+            }
+            if (exact    != null) return (exact,    Math.Max(0, exactCond));
+            if (contains != null) return (contains, Math.Max(0, containsCond));
+            return (null, 0);
+        }
+
         private static string SafeGetPaletteName(FabricationService service, int pi)
         {
             try { return service.GetPaletteName(pi) ?? string.Empty; }
@@ -1273,6 +1329,84 @@ namespace HangerLayout.Revit
             {
                 throw tie.InnerException;
             }
+        }
+
+        /// <summary>
+        /// BEST-EFFORT: push the spec's per-band rod diameter onto the placed hanger.
+        /// Many Fab hangers bake rod size into the button CONDITION (not a writable
+        /// parameter), so this only acts when a writable Length parameter named like
+        /// a rod diameter exists. It is wrapped so a non-writable / absent param is a
+        /// no-op, and it emits ONE diagnostic note (per Apply) reporting what it found
+        /// — that's how we learn whether a given content set exposes a settable rod.
+        /// rodDiaInches is treated as a Length (set in internal feet).
+        /// </summary>
+        // Known rod-diameter parameter names, checked EXACTLY (case-insensitive) before
+        // the loose "rod"+"dia" fallback — avoids writing to an unrelated param that
+        // merely contains those substrings on non-standard content.
+        private static readonly string[] RodDiaExactNames =
+            { "Rod Diameter", "Rod Dia", "Rod Diameter (in)", "Rod Size", "Rod Dia." };
+
+        private static void TrySetRodDiameter(FabricationPart hanger, double rodDiaInches, Outcome outcome)
+        {
+            if (rodDiaInches <= 0 || hanger == null) return;
+
+            // Plausibility guard: a hanger rod is ~1/8"–4". Outside that, refuse to write
+            // (protects against a mis-mapped schedule column landing on a real param).
+            if (rodDiaInches < 0.125 || rodDiaInches > 4.0)
+            {
+                if (!outcome.RodNotAppldNoted)
+                {
+                    outcome.RodNotAppldNoted = true;
+                    outcome.Notes.Add(
+                        $"[rod] rod dia {rodDiaInches:0.###}\" out of plausible range (0.125–4\") — not applied.");
+                }
+                return;
+            }
+
+            try
+            {
+                double rodDiaFt = rodDiaInches / 12.0;
+                Parameter? exact = null, loose = null;
+                foreach (Parameter p in hanger.Parameters)
+                {
+                    if (p == null || p.IsReadOnly || p.StorageType != StorageType.Double) continue;
+                    string n = p.Definition?.Name ?? string.Empty;
+                    if (exact == null &&
+                        RodDiaExactNames.Any(x => string.Equals(n, x, StringComparison.OrdinalIgnoreCase)))
+                    { exact = p; break; }   // exact wins immediately
+                    if (loose == null &&
+                        n.IndexOf("rod", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        n.IndexOf("dia", StringComparison.OrdinalIgnoreCase) >= 0)
+                        loose = p;
+                }
+
+                Parameter? target = exact ?? loose;
+                if (target != null)
+                {
+                    try
+                    {
+                        target.Set(rodDiaFt);
+                        if (!outcome.RodSetNoted)
+                        {
+                            outcome.RodSetNoted = true;
+                            outcome.Notes.Add(
+                                $"[rod] set '{target.Definition?.Name}' = {rodDiaInches:0.###}\" " +
+                                $"on hanger {hanger.Id.ToIdValue()}");
+                        }
+                        return;
+                    }
+                    catch { /* fall through to the not-applied note */ }
+                }
+
+                if (!outcome.RodNotAppldNoted)
+                {
+                    outcome.RodNotAppldNoted = true;
+                    outcome.Notes.Add(
+                        $"[rod] no writable rod-diameter param on hanger {hanger.Id.ToIdValue()} " +
+                        $"— rod dia {rodDiaInches:0.###}\" not applied (likely baked into the button condition).");
+                }
+            }
+            catch { /* never let a diagnostic break placement */ }
         }
 
         /// <summary>
@@ -1700,7 +1834,7 @@ namespace HangerLayout.Revit
                 ConnectorProfileType hostShape = ConnectorProfileType.Round;
                 try { hostShape = host.LeftConn.Shape; } catch { }
                 var (button, condition, hangerNote) = ResolveHangerButton(
-                    doc, serviceName, spec.HangerOverride, hostSize, hostShape);
+                    doc, serviceName, spec.HangerOverride, row.HangerType, hostSize, hostShape);
                 if (button == null)
                 {
                     outcome.SkippedNoButton++;
@@ -1725,6 +1859,7 @@ namespace HangerLayout.Revit
                 {
                     outcome.Placed++;
                     outcome.CreatedIds.Add(hanger.Id);
+                    TrySetRodDiameter(hanger, row.RodDiameterInches, outcome);
                 }
                 else outcome.CreateFailed++;
             }

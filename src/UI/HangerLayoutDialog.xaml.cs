@@ -39,11 +39,12 @@ namespace HangerLayout.UI
         private readonly UIDocument _uiDoc;
         public HangerLayoutViewModel ViewModel { get; }
 
-        public HangerLayoutDialog(UIDocument uiDoc, List<SupportSpec> initialSpecs, List<string> services)
+        public HangerLayoutDialog(UIDocument uiDoc, List<SupportSpec> initialSpecs, List<string> services,
+                                  List<HangerButtonEntry> hangerButtons)
         {
             InitializeComponent();
             _uiDoc = uiDoc;
-            ViewModel = new HangerLayoutViewModel(initialSpecs, services);
+            ViewModel = new HangerLayoutViewModel(initialSpecs, services, hangerButtons);
             DataContext = ViewModel;
 
             // Load persisted placement settings (project-wide).
@@ -425,7 +426,7 @@ namespace HangerLayout.UI
             HangerLayoutApp.HangerEvent!.Raise();
         }
 
-        private static List<HangerButtonEntry> EnumerateHangerButtons(Document doc)
+        public static List<HangerButtonEntry> EnumerateHangerButtons(Document doc)
         {
             var result = new List<HangerButtonEntry>();
             try
@@ -863,6 +864,143 @@ namespace HangerLayout.UI
             ViewModel.StatusText =
                 $"Imported {imported.Count} spec(s) from {System.IO.Path.GetFileName(path)} " +
                 $"({(replace ? "REPLACE ALL" : "MERGE")}).{sample} Review the changes and click Save Specs to persist.";
+        }
+
+        // ── Load from Model — generate a schedule from the pipework present ───
+        // Scans the project (or active view) for FabricationPipework, groups by
+        // ServiceName, and seeds one SupportSpec per service with a size band per
+        // distinct size found. Mirrors the QA-wizard "load from model" pattern, so
+        // the user can GENERATE the grid instead of hand-building / importing, then
+        // edit in-app or Export to CSV. Runs the scan on the Revit thread.
+        private void LoadFromModel_Click(object sender, RoutedEventArgs e)
+        {
+            HangerLayoutApp.HangerHandler!.SetAction(uiApp =>
+            {
+                var doc = uiApp.ActiveUIDocument.Document;
+                List<SupportSpec> generated;
+                string? error = null;
+                try { generated = GenerateSpecsFromModel(doc, ViewModel.IsScopeView); }
+                catch (Exception ex) { generated = new List<SupportSpec>(); error = ex.Message; }
+
+                Dispatcher.Invoke(() =>
+                {
+                    string scope = ViewModel.IsScopeView ? "active view" : "model";
+                    if (error != null) { ViewModel.StatusText = $"Load from Model failed: {error}"; return; }
+                    if (generated.Count == 0)
+                    {
+                        ViewModel.StatusText =
+                            $"Load from Model found no fabrication pipework services in the {scope}.";
+                        return;
+                    }
+                    var choice = ShowImportChoiceDialog(generated.Count, generated.Count, 0, scope);
+                    if (choice == ImportChoice.Cancel) return;
+                    bool replace = choice == ImportChoice.Replace;
+                    ViewModel.ImportSpecs(generated, replace);
+                    int rows = generated.Sum(s => s.Rows.Count);
+                    ViewModel.StatusText =
+                        $"Generated {generated.Count} service spec(s) / {rows} size band(s) from the {scope} " +
+                        $"({(replace ? "REPLACE ALL" : "MERGE")}). Sizes are approximate (from connector geometry) — " +
+                        "set spacing / Hanger Type, then Save Specs (or Export to CSV to edit in Excel).";
+                });
+            });
+            HangerLayoutApp.HangerEvent!.Raise();
+        }
+
+        // Group pipework by service, collect distinct nominal sizes, build one spec per service.
+        private static List<SupportSpec> GenerateSpecsFromModel(Document doc, bool viewScope)
+        {
+            // Guard the view-scoped collector: a null / template / unsupported active
+            // view would throw at construction. Fall back to a doc-wide scan rather
+            // than failing the whole Load.
+            FilteredElementCollector collector;
+            try
+            {
+                var av = doc.ActiveView;
+                bool viewUsable = viewScope && av != null && !av.IsTemplate;
+                collector = viewUsable
+                    ? new FilteredElementCollector(doc, av!.Id)
+                    : new FilteredElementCollector(doc);
+            }
+            catch { collector = new FilteredElementCollector(doc); }
+
+            var byService = new Dictionary<string, SortedSet<double>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var fp in collector.OfClass(typeof(FabricationPart))
+                                        .WhereElementIsNotElementType()
+                                        .Cast<FabricationPart>())
+            {
+                if (fp.Category == null ||
+                    fp.Category.Id.ToIdValue() != (long)BuiltInCategory.OST_FabricationPipework)
+                    continue;
+                try { if (fp.IsAHanger()) continue; } catch { }
+                string svc = fp.ServiceName ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(svc)) continue;
+                double size = PartNominalSizeInches(fp);
+                if (size <= 0) continue;
+                if (!byService.TryGetValue(svc, out var sizes)) { sizes = new SortedSet<double>(); byService[svc] = sizes; }
+                sizes.Add(Math.Round(size, 2));
+            }
+
+            var result = new List<SupportSpec>();
+            foreach (var kv in byService.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var spec = new SupportSpec { Name = kv.Key, Domain = HangerDomain.Pipe };
+                foreach (double size in kv.Value)
+                    spec.Rows.Add(new SupportSpecRow
+                    {
+                        MaxSizeInches           = size,
+                        StraightSpacingInches   = 96,
+                        FittingDistanceInches   = 18,
+                        DistanceFromJointInches = 9,
+                    });
+                result.Add(spec);
+            }
+            return result;
+        }
+
+        // Largest End-connector size (inches). Connector geometry is physical (≈OD), not nominal —
+        // good enough to seed editable bands; the user refines. 0 if undeterminable.
+        private static double PartNominalSizeInches(FabricationPart fp)
+        {
+            double best = 0;
+            try
+            {
+                foreach (var c in ConnectorHelper.GetPhysicalConnectors(fp))
+                {
+                    if (c.ConnectorType != ConnectorType.End) continue;
+                    double s = c.Shape == ConnectorProfileType.Round
+                        ? c.Radius * 2.0 * 12.0
+                        : Math.Max(c.Width, c.Height) * 12.0;
+                    if (s > best) best = s;
+                }
+            }
+            catch { }
+            return best;
+        }
+
+        // ── Export to CSV — current pipe specs → Harris hanger-schedule CSV ───
+        // Pure UI-thread file IO. Round-trips with Import Table (same headers/units).
+        private void ExportTable_Click(object sender, RoutedEventArgs e)
+        {
+            var specs = ViewModel.SnapshotSpecs().Where(s => s.Domain == HangerDomain.Pipe).ToList();
+            if (specs.Count == 0) { ViewModel.StatusText = "No pipe specs to export."; return; }
+
+            var sfd = new Microsoft.Win32.SaveFileDialog
+            {
+                Title    = "Export Hanger Schedule",
+                Filter   = "CSV (*.csv)|*.csv",
+                FileName = "hanger-schedule.csv",
+            };
+            if (sfd.ShowDialog(this) != true) return;
+
+            try
+            {
+                HangerScheduleImporter.WriteCsv(sfd.FileName, specs);
+                int rows = specs.Sum(s => s.Rows.Count);
+                ViewModel.StatusText =
+                    $"Exported {specs.Count} pipe spec(s) / {rows} size band(s) to " +
+                    $"{System.IO.Path.GetFileName(sfd.FileName)}. Edit in Excel and re-import via Import Table.";
+            }
+            catch (Exception ex) { ViewModel.StatusText = $"Export failed: {ex.Message}"; }
         }
 
         // ── Apply ────────────────────────────────────────────────────────────
@@ -1312,7 +1450,7 @@ namespace HangerLayout.UI
                 .Where(n => n.StartsWith("[diag")     || n.StartsWith("[anchor")
                          || n.StartsWith("[unmapped") || n.StartsWith("[skip")
                          || n.StartsWith("[clear")    || n.StartsWith("[warn")
-                         || n.StartsWith("[flow-bug"))
+                         || n.StartsWith("[flow-bug") || n.StartsWith("[rod"))
                 .Distinct()
                 .ToList();
             string diagLine = diagNotes.Count > 0
@@ -1349,8 +1487,13 @@ namespace HangerLayout.UI
         public ObservableCollection<SpecVm> PipeSpecs { get; } = new();
         public ObservableCollection<SpecVm> DuctSpecs { get; } = new();
 
-        public HangerLayoutViewModel(List<SupportSpec> initialSpecs, List<string> services)
+        public HangerLayoutViewModel(List<SupportSpec> initialSpecs, List<string> services,
+                                     List<HangerButtonEntry>? hangerButtons = null)
         {
+            // Assign BEFORE the first SelectedPipeSpec set below — its setter rebuilds the
+            // per-service Hanger Type choices and reads this list.
+            _allHangerButtons = hangerButtons ?? new List<HangerButtonEntry>();
+
             foreach (var s in initialSpecs ?? new List<SupportSpec>())
             {
                 var vm = SpecVm.From(s);
@@ -1472,7 +1615,10 @@ namespace HangerLayout.UI
             set
             {
                 if (SetField(ref _selectedPipeSpec, value))
+                {
                     OnPropertyChanged(nameof(HasSelectedPipeSpec));
+                    RebuildHangerTypeChoices();   // dropdown is per-service (spec.Name)
+                }
             }
         }
         public bool HasSelectedPipeSpec => _selectedPipeSpec != null;
@@ -1577,6 +1723,40 @@ namespace HangerLayout.UI
             foreach (var n in _services) ServiceNames.Add(n);
             if (_selectedServiceName == null || !_services.Contains(_selectedServiceName))
                 SelectedServiceName = _services.FirstOrDefault();
+        }
+
+        // ── Hanger Type dropdown choices (per the selected pipe spec's service) ──
+        // Snapshot of every IsAHanger button in the loaded Fab config, captured on the
+        // Revit thread when the dialog opened. The grid's Hanger Type column binds to
+        // HangerTypeChoices; it's rebuilt to the SELECTED spec's service each time the
+        // selection changes. Falls back to ALL hanger buttons when no service matches,
+        // so the dropdown is never empty. The column is editable, so a typed value not
+        // in the list (e.g. an imported "Clevis" vs a Fab button "Clevis Hanger") stays.
+        private readonly List<HangerButtonEntry> _allHangerButtons;
+        public ObservableCollection<string> HangerTypeChoices { get; } = new();
+
+        private void RebuildHangerTypeChoices()
+        {
+            HangerTypeChoices.Clear();
+            string svc = _selectedPipeSpec?.Name ?? string.Empty;
+
+            List<string> names = _allHangerButtons
+                .Where(b => string.Equals(b.ServiceName, svc, StringComparison.OrdinalIgnoreCase))
+                .Select(b => b.ButtonName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (names.Count == 0)   // no per-service match → offer every hanger button
+                names = _allHangerButtons
+                    .Select(b => b.ButtonName)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+            foreach (string n in names) HangerTypeChoices.Add(n);
         }
 
         // ── Pre-picked elements (Pick mode) ──────────────────────────────────
@@ -1881,12 +2061,15 @@ namespace HangerLayout.UI
             {
                 vm.Rows.Add(new RowVm
                 {
-                    MaxSizeInches           = r.MaxSizeInches,
-                    StraightSpacingInches   = r.StraightSpacingInches,
-                    FittingDistanceInches   = r.FittingDistanceInches,
-                    DistanceFromJointInches = r.DistanceFromJointInches,
-                    HangerType              = r.HangerType,
-                    RodDiameterInches       = r.RodDiameterInches,
+                    MaxSizeInches            = r.MaxSizeInches,
+                    StraightSpacingInches    = r.StraightSpacingInches,
+                    FittingDistanceInches    = r.FittingDistanceInches,
+                    DistanceFromJointInches  = r.DistanceFromJointInches,
+                    HangerType               = r.HangerType,
+                    RodDiameterInches        = r.RodDiameterInches,
+                    DistanceFromAnchorInches = r.DistanceFromAnchorInches,
+                    InsulationInsertType     = r.InsulationInsertType,
+                    HangerSizeOdInches       = r.HangerSizeOdInches,
                 });
             }
             return vm;
@@ -1908,12 +2091,15 @@ namespace HangerLayout.UI
                 Insulation       = Insulation,
                 Rows             = Rows.Select(r => new SupportSpecRow
                 {
-                    MaxSizeInches           = r.MaxSizeInches,
-                    StraightSpacingInches   = r.StraightSpacingInches,
-                    FittingDistanceInches   = r.FittingDistanceInches,
-                    DistanceFromJointInches = r.DistanceFromJointInches,
-                    HangerType              = r.HangerType,
-                    RodDiameterInches       = r.RodDiameterInches,
+                    MaxSizeInches            = r.MaxSizeInches,
+                    StraightSpacingInches    = r.StraightSpacingInches,
+                    FittingDistanceInches    = r.FittingDistanceInches,
+                    DistanceFromJointInches  = r.DistanceFromJointInches,
+                    HangerType               = r.HangerType,
+                    RodDiameterInches        = r.RodDiameterInches,
+                    DistanceFromAnchorInches = r.DistanceFromAnchorInches,
+                    InsulationInsertType     = r.InsulationInsertType,
+                    HangerSizeOdInches       = r.HangerSizeOdInches,
                 }).ToList()
             };
         }
@@ -1951,6 +2137,15 @@ namespace HangerLayout.UI
 
         private double _rodDiameterInches;
         public double RodDiameterInches { get => _rodDiameterInches; set => SetField(ref _rodDiameterInches, value); }
+
+        private double _distanceFromAnchorInches;
+        public double DistanceFromAnchorInches { get => _distanceFromAnchorInches; set => SetField(ref _distanceFromAnchorInches, value); }
+
+        private string _insulationInsertType = "";
+        public string InsulationInsertType { get => _insulationInsertType; set => SetField(ref _insulationInsertType, value); }
+
+        private double _hangerSizeOdInches;
+        public double HangerSizeOdInches { get => _hangerSizeOdInches; set => SetField(ref _hangerSizeOdInches, value); }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged([CallerMemberName] string? n = null)

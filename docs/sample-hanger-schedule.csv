@@ -1,15 +1,15 @@
-Service Name,Media,Pipe Material Description,Pipe Insulation Type,Pipe Size,Hanger Spacing,Distance From Fitting,Distance From Anchor,Hanger Type,Rod Diameter
-Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,1,6,1,0.5,Clevis,0.375
-Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,2,8,1,0.5,Clevis,0.375
-Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,3,10,1,0.5,Clevis,0.5
-Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,4,10,1,0.5,Clevis,0.5
-Domestic Hot Water,Domestic Hot,Copper,Insulated,1,6,1,0.5,Clevis,0.375
-Domestic Hot Water,Domestic Hot,Copper,Insulated,2,8,1,0.5,Clevis,0.375
-Domestic Hot Water,Domestic Hot,Copper,Insulated,3,10,1,0.5,Clevis,0.5
-Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,2,5,1,0.5,Clevis,0.5
-Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,4,5,1,0.5,Clevis,0.5
-Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,6,5,1,0.5,Clevis,0.625
-Chilled Water,Hydronic,Steel,Insulated,2,10,1.5,0.75,Clevis,0.5
-Chilled Water,Hydronic,Steel,Insulated,4,14,1.5,0.75,Clevis,0.625
-Chilled Water,Hydronic,Steel,Insulated,6,17,1.5,0.75,Clevis,0.625
-Chilled Water,Hydronic,Steel,Insulated,8,19,1.5,0.75,Clevis,0.875
+Service Name,Media,Pipe Material Description,Pipe Insulation Type,Pipe Size,Hanger Size (InsulationPlusPipeOD),Hanger Spacing,Distance From Fitting,Distance From Joint,Distance From Anchor,Hanger Type,Insulation Insert Type,Rod Diameter
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,1,1.125,6,1,0.25,0.5,Clevis,,0.375
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,2,2.125,8,1,0.25,0.5,Clevis,,0.375
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,3,3.125,10,1,0.25,0.5,Clevis,,0.5
+Domestic Cold Water,Domestic Cold,Copper,Bare Pipe,4,4.125,10,1,0.25,0.5,Clevis,,0.5
+Domestic Hot Water,Domestic Hot,Copper,Insulated,1,3.125,6,1,0.25,0.5,Clevis,Insulation Shield,0.375
+Domestic Hot Water,Domestic Hot,Copper,Insulated,2,4.125,8,1,0.25,0.5,Clevis,Insulation Shield,0.375
+Domestic Hot Water,Domestic Hot,Copper,Insulated,3,5.125,10,1,0.25,0.5,Clevis,Insulation Shield,0.5
+Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,2,2.3,5,1,0.25,0.5,Clevis,,0.5
+Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,4,4.5,5,1,0.25,0.5,Clevis,,0.5
+Sanitary Waste,Drainage,Cast Iron No Hub,Bare Pipe,6,6.625,5,1,0.25,0.5,Clevis,,0.625
+Chilled Water,Hydronic,Steel,Insulated,2,4.375,10,1.5,0.5,0.75,Clevis,Insulation Shield,0.5
+Chilled Water,Hydronic,Steel,Insulated,4,6.625,14,1.5,0.5,0.75,Clevis,Insulation Shield,0.625
+Chilled Water,Hydronic,Steel,Insulated,6,8.625,17,1.5,0.5,0.75,Clevis,Insulation Shield,0.625
+Chilled Water,Hydronic,Steel,Insulated,8,10.75,19,1.5,0.5,0.75,Clevis,Insulation Shield,0.875

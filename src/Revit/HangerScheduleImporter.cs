@@ -218,6 +218,9 @@ namespace HangerLayout.Revit
                         DistanceFromJointInches = p.JointSetbackInches,
                         HangerType = p.HangerType,
                         RodDiameterInches = p.RodDiameterInches,
+                        DistanceFromAnchorInches = p.AnchorSetbackInches,
+                        InsulationInsertType = p.InsulationInsertType,
+                        HangerSizeOdInches = p.HangerSizeOdInches,
                     });
             }
             // Size bands ascending so placement picks the smallest band that fits a given pipe size.
@@ -228,8 +231,9 @@ namespace HangerLayout.Revit
         /// <summary>The values pulled from ONE schedule row, before grouping. Filled by <see cref="ParseRow"/>.</summary>
         private struct ParsedRow
         {
-            public string Service, Media, Material, Insulation, HangerType;
-            public double MaxSizeInches, SpacingInches, FittingSetbackInches, JointSetbackInches, RodDiameterInches;
+            public string Service, Media, Material, Insulation, HangerType, InsulationInsertType;
+            public double MaxSizeInches, SpacingInches, FittingSetbackInches, JointSetbackInches,
+                          AnchorSetbackInches, RodDiameterInches, HangerSizeOdInches;
         }
 
         // Map a schedule row to the parsed fields. Column matching is TOLERANT — each field tries several candidate
@@ -247,9 +251,15 @@ namespace HangerLayout.Revit
             MaxSizeInches        = Num(row,   "Pipe Size", "Size", "Max Size", "Nominal Size"),
             SpacingInches        = FeetCol(row, "Hanger Spacing", "Spacing", "Max Spacing"),
             FittingSetbackInches = FeetCol(row, "Distance From Fitting", "DistanceFromFitting", "Fitting Distance", "Fitting Setback"),
-            JointSetbackInches   = FeetCol(row, "Distance From Anchor", "DistanceFromAnchor", "Distance From Joint", "Joint Setback"),
+            // Joint takes its own column when present; "Distance From Anchor" stays as a LAST-RESORT fallback
+            // so legacy schedules (pre-split, anchor-only — e.g. the v1.1.0 sample) still drive joint placement.
+            JointSetbackInches   = FeetCol(row, "Distance From Joint", "DistanceFromJoint", "Joint Setback",
+                                                "Distance From Anchor", "DistanceFromAnchor"),
+            AnchorSetbackInches  = FeetCol(row, "Distance From Anchor", "DistanceFromAnchor", "Anchor Setback"),
             HangerType           = First(row, "Hanger Type", "Type"),
             RodDiameterInches    = Num(row,   "Rod Diameter", "Rod Size", "Rod Dia", "Rod"),
+            InsulationInsertType = First(row, "Insulation Insert Type", "Insulation Insert", "Insert Type", "Insert"),
+            HangerSizeOdInches   = Num(row,   "Hanger Size (InsulationPlusPipeOD)", "Hanger Size", "InsulationPlusPipeOD", "Hanger OD", "OD"),
         };
 
         // First non-empty text value among the candidate headers (in order).
@@ -273,5 +283,55 @@ namespace HangerLayout.Revit
         // Spacing / setback columns — ASSUMED to be in feet in the schedule, returned in inches (the row's unit).
         private const double FeetToInches = 12.0;
         private static double FeetCol(RawRow row, params string[] columns) => Num(row, columns) * FeetToInches;
+
+        // ── Export: SupportSpecs → Harris hanger-schedule CSV ──────────────────────────────────────────
+        // Uses the SAME canonical headers ParseRow consumes, so Export → edit in Excel → Import round-trips
+        // cleanly. Setbacks/spacing are written in FEET (the schedule's unit; ParseRow multiplies back ×12);
+        // Pipe Size / Hanger OD / Rod Diameter are inches (written as-is). One CSV row per (spec × size band).
+        private static readonly string[] CsvHeaders =
+        {
+            "Service Name", "Media", "Pipe Material Description", "Pipe Insulation Type",
+            "Pipe Size", "Hanger Size (InsulationPlusPipeOD)", "Hanger Spacing",
+            "Distance From Fitting", "Distance From Joint", "Distance From Anchor",
+            "Hanger Type", "Insulation Insert Type", "Rod Diameter",
+        };
+
+        /// <summary>Write the given specs to a Harris hanger-schedule CSV at <paramref name="path"/>.</summary>
+        public static void WriteCsv(string path, IEnumerable<SupportSpec> specs)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(string.Join(",", CsvHeaders));
+            foreach (SupportSpec s in specs ?? Enumerable.Empty<SupportSpec>())
+            {
+                foreach (SupportSpecRow r in s.Rows ?? new List<SupportSpecRow>())
+                {
+                    string[] cells =
+                    {
+                        s.Name, s.Media, s.Material, s.Insulation,
+                        Inv(r.MaxSizeInches),
+                        Inv(r.HangerSizeOdInches),
+                        Inv(r.StraightSpacingInches   / FeetToInches),
+                        Inv(r.FittingDistanceInches   / FeetToInches),
+                        Inv(r.DistanceFromJointInches / FeetToInches),
+                        Inv(r.DistanceFromAnchorInches / FeetToInches),
+                        r.HangerType,
+                        r.InsulationInsertType,
+                        Inv(r.RodDiameterInches),
+                    };
+                    sb.AppendLine(string.Join(",", cells.Select(CsvEscape)));
+                }
+            }
+            File.WriteAllText(path, sb.ToString());
+        }
+
+        private static string Inv(double v) => v.ToString("0.####", CultureInfo.InvariantCulture);
+
+        // Quote a CSV field if it contains a comma, quote, or newline; double embedded quotes.
+        private static string CsvEscape(string field)
+        {
+            field ??= "";
+            if (field.IndexOfAny(new[] { ',', '"', '\n', '\r' }) < 0) return field;
+            return "\"" + field.Replace("\"", "\"\"") + "\"";
+        }
     }
 }

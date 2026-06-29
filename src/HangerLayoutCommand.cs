@@ -39,7 +39,11 @@ namespace HangerLayout
             }
             var sortedServices = services.OrderBy(s => s, System.StringComparer.OrdinalIgnoreCase).ToList();
 
-            var dialog = new HangerLayoutDialog(uiDoc, specs, sortedServices);
+            // Snapshot the loaded Fab config's hanger buttons (per service) on the Revit
+            // thread so the dialog's Hanger Type column can offer them as a dropdown.
+            var hangerButtons = HangerLayoutDialog.EnumerateHangerButtons(doc);
+
+            var dialog = new HangerLayoutDialog(uiDoc, specs, sortedServices, hangerButtons);
             _instance = dialog;
             dialog.Closed += (_, _) => _instance = null;
             dialog.Show();

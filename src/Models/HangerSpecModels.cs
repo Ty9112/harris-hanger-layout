@@ -63,6 +63,16 @@ namespace HangerLayout.Models
         public string HangerType { get; set; } = "";
         /// <summary>Threaded-rod diameter (inches) for this size band, e.g. 0.375. 0 = unspecified.</summary>
         public double RodDiameterInches { get; set; }
+
+        /// <summary>Setback (inches) from an anchor point — distinct from the joint setback above.
+        /// 0 = unspecified.</summary>
+        public double DistanceFromAnchorInches { get; set; }
+        /// <summary>Insulation insert / shield type for this size band, e.g. "Insulation Shield",
+        /// "Wood Block". "" = none.</summary>
+        public string InsulationInsertType { get; set; } = "";
+        /// <summary>Hanger size = insulated outside diameter (InsulationPlusPipeOD), inches. Carried from
+        /// the schedule and stored; NOT runtime-computed (there is no in-model pipe-OD source). 0 = unspecified.</summary>
+        public double HangerSizeOdInches { get; set; }
     }
 
     public class SupportSpec
