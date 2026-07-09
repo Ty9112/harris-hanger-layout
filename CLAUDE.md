@@ -5,7 +5,7 @@ from one source tree via `-p:RevitVersion=...`). It places pipe and duct
 hangers along selected Autodesk Fabrication parts using user-defined
 size-banded spacing rules.
 
-## Project layout
+## 1. Project layout
 
 ```
 src/
@@ -36,7 +36,7 @@ src/
 docs/                              ← User-facing + developer documentation
 ```
 
-## Build and deploy
+## 2. Build and deploy
 
 ```
 cd src
@@ -60,7 +60,7 @@ isn't the default:
 dotnet build -c Debug -p:RevitInstallPath="D:\Revit 2026"
 ```
 
-## Critical Revit API gotchas
+## 3. Critical Revit API gotchas
 
 These have bitten the original author multiple times — keep them in mind
 when modifying the placement logic.
@@ -80,7 +80,7 @@ when modifying the placement logic.
   inherited from the parent project — they're harmless dead code here but
   not exercised.
 
-## Key design decisions worth knowing
+## 4. Key design decisions worth knowing
 
 - **Hanger placement is chain-aware, not segment-aware.** If a 30 ft run
   consists of two 14 ft straights with a flange between them, hangers space
@@ -92,28 +92,28 @@ when modifying the placement logic.
   `pos >= rightBound`.
 - **Hanger-button shape filter has three-step precedence** for mixed
   round/rect duct runs:
-  1. Explicit ROUND/PIPE keyword in the button name → accept for round
+  1. Explicit ROUND/PIPE keyword in the button name -> accept for round
      hosts only.
-  2. RECTANGULAR / BEARER / TRAPEZE keyword → accept for rect hosts only.
-  3. No shape keyword → fall back to "round default" (Revit's convention).
+  2. RECTANGULAR / BEARER / TRAPEZE keyword -> accept for rect hosts only.
+  3. No shape keyword -> fall back to "round default" (Revit's convention).
 - **Specs storage is ExtensibleStorage on `doc.ProjectInformation`**, not
   shared parameters. Survives save/close, travels with the model. Schema
   GUID is `8C3F2B4E-9D4F-4C9B-B67E-3D5F92DA014F` (independent of any other
   add-in).
 
-## When you change the placement algorithm
+## 5. When you change the placement algorithm
 
 Test cases that matter:
 - Single straight, no joints, span > 2× spacing.
 - Two-straight chain joined by a flange — verify joint piece length is
   in the spacing, not added on.
-- Mixed round/rect duct run with a Round→Rect reducer in the middle.
+- Mixed round/rect duct run with a Round->Rect reducer in the middle.
 - Selection starts on a joint piece (the seed) — the chain walker should
   find the adjacent straights.
 - Pick a Start Node on the left vs right end of a chain — placement should
   begin from that end's setback.
 
-## When you change the UI
+## 6. When you change the UI
 
 The dialog uses a hand-rolled INPC pattern (no MVVM framework). Look at
 `HangerLayoutViewModel` for the data binding contract. Dirty tracking is
